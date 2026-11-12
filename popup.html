@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    body {
+      width: 332px;
+      background: radial-gradient(circle at top right, #1f1412 0%, #0e0e12 58%);
+      color: #f4f4f5;
+      padding: 16px;
+      user-select: none;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #27272a;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-img {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 10px rgba(251, 84, 43, 0.35));
+    }
+    .title-group h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 0.2px;
+    }
+    .title-group p {
+      font-size: 11px;
+      color: #a1a1aa;
+      font-weight: 500;
+    }
+    .title-group p span {
+      color: #fb542b;
+      font-weight: 700;
+    }
+    .version-badge {
+      background: rgba(251, 84, 43, 0.14);
+      border: 1px solid rgba(251, 84, 43, 0.35);
+      color: #ff8a65;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+    }
+
+    /* Site Shield Card */
+    .site-card {
+      margin-top: 12px;
+      background: #17171c;
+      border: 1px solid #27272a;
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: border-color 0.25s ease, background 0.25s ease;
+    }
+    .site-card.active {
+      border-color: rgba(251, 84, 43, 0.45);
+      background: linear-gradient(135deg, rgba(251, 84, 43, 0.08), #17171c 70%);
+    }
+    .site-meta {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .site-host {
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 210px;
+    }
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #a1a1aa;
+    }
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: #ef4444;
+      flex-shrink: 0;
+      transition: all 0.25s ease;
+    }
+    .dot.active {
+      background-color: #10b981;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.65);
+    }
+
+    /* Stats Row */
+    .stats-grid {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .stat-box {
+      background: #15151a;
+      border: 1px solid #232329;
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .stat-num {
+      font-size: 20px;
+      font-weight: 800;
+      color: #ff7a00;
+      line-height: 1.1;
+    }
+    .stat-num.redir {
+      color: #fb542b;
+    }
+    .stat-label {
+      margin-top: 4px;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: #d4d4d8;
+    }
+    .stat-sub {
+      margin-top: 2px;
+      font-size: 9.5px;
+      color: #71717a;
+    }
+
+    /* Controls List */
+    .controls {
+      margin-top: 10px;
+      background: #15151a;
+      border: 1px solid #232329;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-bottom: 1px solid #202026;
+      gap: 10px;
+    }
+    .control-row:last-child {
+      border-bottom: none;
+    }
+    .control-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .control-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #e4e4e7;
+    }
+    .control-desc {
+      font-size: 10px;
+      color: #71717a;
+    }
+
+    /* Toggle Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #27272a;
+      transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: 22px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #71717a;
+      transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background: linear-gradient(135deg, #ff7a00, #fb542b);
+    }
+    input:checked + .slider:before {
+      transform: translateX(18px);
+      background-color: #ffffff;
+    }
+    input:disabled + .slider {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .footer {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #71717a;
+    }
+    .bypass-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #a1a1aa;
+      font-weight: 500;
+    }
+    .bypass-pill span {
+      color: #10b981;
+      font-weight: 700;
+    }
+    .reset-btn {
+      background: none;
+      border: none;
+      color: #71717a;
+      font-size: 10px;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 2px 4px;
+    }
+    .reset-btn:hover {
+      color: #fb542b;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <img src="icons/icon48.png" alt="Brave Mini" class="logo-img" id="logoImg">
+      <div class="title-group">
+        <h1>Brave Mini</h1>
+        <p>by <span>MS</span> • Ad & Redirect Shield</p>
+      </div>
+    </div>
+    <span class="version-badge">v3.0</span>
+  </div>
+
+  <div class="site-card active" id="siteCard">
+    <div class="site-meta">
+      <span class="site-host" id="siteHost">Loading site...</span>
+      <div class="status-indicator">
+        <span class="dot active" id="statusDot"></span>
+        <span id="statusText">Shields UP on this site</span>
+      </div>
+    </div>
+    <label class="switch" title="Toggle Shields for this site">
+      <input type="checkbox" id="siteSwitch" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-box">
+      <div class="stat-num" id="adsTotalCount">0</div>
+      <div class="stat-label">Ads & Trackers</div>
+      <div class="stat-sub">This tab: <span id="adsTabCount">0</span></div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num redir" id="redirTotalCount">0</div>
+      <div class="stat-label">Redirects & Popups</div>
+      <div class="stat-sub">This tab: <span id="redirTabCount">0</span></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="control-row">
+      <div class="control-text">
+        <span class="control-title">Global Shield Engine</span>
+        <span class="control-desc">Master ad, tracker & anti-adblock shield</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="globalSwitch" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="control-row">
+      <div class="control-text">
+        <span class="control-title">Aggressive Ad & Redirect Block</span>
+        <span class="control-desc">Popunders, click-traps & YouTube ads</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="aggressiveSwitch" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="control-row">
+      <div class="control-text">
+        <span class="control-title">Clean Tracking URLs</span>
+        <span class="control-desc">Strip fbclid, gclid, utm_* parameters</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="cleanUrlsSwitch" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="bypass-pill"><span>●</span> All-Site Brave Shield Active</div>
+    <button class="reset-btn" id="resetStatsBtn">Reset Stats</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

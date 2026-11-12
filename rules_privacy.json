@@ -1,0 +1,43 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "transform": {
+          "queryTransform": {
+            "removeParams": [
+              "fbclid",
+              "gclid",
+              "dclid",
+              "gbraid",
+              "wbraid",
+              "msclkid",
+              "mc_cid",
+              "mc_eid",
+              "yclid",
+              "utm_source",
+              "utm_medium",
+              "utm_campaign",
+              "utm_term",
+              "utm_content",
+              "utm_id",
+              "igshid",
+              "_hsenc",
+              "_hsmi",
+              "mkt_tok",
+              "vero_id"
+            ]
+          }
+        }
+      }
+    },
+    "condition": {
+      "urlFilter": "*",
+      "resourceTypes": [
+        "main_frame"
+      ]
+    }
+  }
+]
