@@ -1,99 +1,157 @@
 <p align="center">
-  <img src="icons/icon128.png" alt="Brave Mini by MS" width="110" />
+  <img src="icons/icon128.png" alt="Brave Mini by MS" width="112" />
 </p>
 
 <h1 align="center">Brave Mini by MS</h1>
 
 <p align="center">
-  <strong>Brave-style Aggressive Ad Blocker, Redirect & Popunder Shield, URL Tracker Cleaner, and Anti-Adblock Bypass for All Chromium Browsers</strong>
+  <strong>Browse without ads, popups, or forced redirects — Brave-style shields for Chrome, Edge, Brave, Opera & Vivaldi.</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Manifest-V3-FB542B?style=for-the-badge" alt="Manifest V3" />
-  <img src="https://img.shields.io/badge/Version-3.0.1-FF7A00?style=for-the-badge" alt="Version 3.0.1" />
-  <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Edge%20%7C%20Brave%20%7C%20Opera%20%7C%20Vivaldi-18181b?style=for-the-badge" alt="Chromium Browsers" />
+  <a href="https://github.com/Mohiuddin0035/brave-mini-by-mss/releases/tag/v3.0.1">
+    <img src="https://img.shields.io/badge/Download-v3.0.1%20ZIP-FB542B?style=for-the-badge&logo=github" alt="Download v3.0.1" />
+  </a>
+  <img src="https://img.shields.io/badge/Manifest-V3-FF7A00?style=for-the-badge" alt="Manifest V3" />
+  <img src="https://img.shields.io/badge/Privacy-100%25%20Local-10B981?style=for-the-badge" alt="100% Local" />
+  <img src="https://img.shields.io/badge/Browsers-All%20Chromium-18181B?style=for-the-badge" alt="Chromium Browsers" />
+</p>
+
+<p align="center">
+  <a href="#-what-it-does">Features</a> •
+  <a href="#-install-in-30-seconds">Install in 30 Seconds</a> •
+  <a href="#-dashboard-controls">Controls</a> •
+  <a href="#-under-the-hood-for-developers">For Developers</a>
 </p>
 
 ---
 
-## Features
-
-- **Aggressive Network Ad & Tracker Blocking (MV3 `declarativeNetRequest`)**
-  - Blocks `217+` major ad networks, ad exchanges, push-notification spam SDKs, and third-party tracking/analytics endpoints (`rules.json`).
-  - Redirects static anti-adblock bait scripts (`adsbygoogle.js`, `gpt.js`, `show_ads.js`) to a safe local stub (`bait-stub.js`) so websites don't trigger adblock walls.
-- **Popunder & Forced Redirect Shield**
-  - Network-level blocking (`119+` rules in `rules_redirects.json`) for streaming popunder networks, affiliate redirectors, and third-party `<a ping>` tracking.
-  - Smart JS Shield (`shields.js`) neutralizes popunder SDKs, `about:blank` / gesture-less `window.open` popups, detached `a.click()` traps, `<meta http-equiv="refresh">` ad redirects, and full-screen transparent click-traps—while keeping legitimate play buttons, download links, and OAuth logins working.
-  - Background Tab Guard (`background.js`) automatically closes rogue ad/popunder tabs and multi-hop redirect chains, returning focus to your active tab.
-- **YouTube Ad Blocker & Auto-Skipper**
-  - Automatically hides YouTube ad banners/slots and skips or fast-forwards video ads.
-- **URL Tracking Parameter Cleaner**
-  - Strips `fbclid`, `gclid`, `dclid`, `msclkid`, `mc_eid`, `yclid`, `igshid`, and `utm_*` tracking parameters on navigation (`rules_privacy.json`).
-- **Built-in Anti-Adblock & Sync-Player Bypass**
-  - Preserves full compatibility for sites using anti-adblock overlays and media-pause traps (`bypass.js`).
-- **Brave-Style Popup Dashboard**
-  - **Per-Site Shields UP/DOWN** toggle for one-click site exceptions.
-  - **Persistent Lifetime Stats** for Ads & Trackers and Redirects & Popups blocked (plus per-tab counts).
-  - Independent toggles for **Global Shield Engine**, **Aggressive Ad & Redirect Block**, and **Clean Tracking URLs**.
+> **Why Brave Mini?** Most ad blockers miss streaming popups, forced redirect tabs, and anti-adblock walls. **Brave Mini** combines fast network blocking, smart popup protection, YouTube ad skipping, and link cleaning into one lightweight extension — with **zero data collection**.
 
 ---
 
-## Installation & Usage
+## ✨ What It Does
 
-### Option 1: Install from GitHub Releases (Recommended)
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🛡️ Blocks Ads & Trackers</h3>
+      Stops banner ads, push-notification spam, and <strong>217+ major ad & tracking networks</strong> before they even load — making pages faster and cleaner.
+    </td>
+    <td width="50%" valign="top">
+      <h3>▶️ YouTube Ad Blocker & Auto-Skip</h3>
+      Hides YouTube ad banners and automatically skips or speeds past video ads so you can watch uninterrupted.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🚫 Stops Popups & Forced Redirects</h3>
+      Kills sneaky new-tab popups, invisible click-traps, and fake download/play redirects — while keeping <strong>real play buttons, downloads, and Google/OAuth logins</strong> working.
+    </td>
+    <td width="50%" valign="top">
+      <h3>🔓 Bypasses Anti-Adblock Walls</h3>
+      Prevents websites from locking content or pausing video players when an ad blocker is detected.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🔗 Strips Tracking Links</h3>
+      Automatically removes hidden tracking tags (<code>fbclid</code>, <code>gclid</code>, <code>utm_*</code>, <code>igshid</code>, and more) whenever you open a URL.
+    </td>
+    <td width="50%" valign="top">
+      <h3>📊 Brave-Style Control Panel</h3>
+      Pause shields on any website in one click, customize protection modes, and track live + lifetime blocked counts right from the toolbar.
+    </td>
+  </tr>
+</table>
 
-1. Go to the [**Releases**](../../releases) page of this repository.
-2. Download the latest **`Brave-Mini-by-MS-v3.0.1.zip`** asset.
-3. Extract (unzip) the downloaded file to a permanent folder on your computer (for example, `C:\Extensions\Brave-Mini-by-MS`).
-   > **Note:** Do not delete the extracted folder after loading it, as the browser reads the extension directly from this folder.
-4. Open your Chromium-based browser's Extensions page:
-   - **Google Chrome:** `chrome://extensions`
-   - **Microsoft Edge:** `edge://extensions`
-   - **Brave Browser:** `brave://extensions`
+---
+
+## ⚡ Built for Everyday Browsing
+
+| 🔒 100% Private | ⚙️ Zero Config | 🧠 Smart & Safe | 🌐 Works Everywhere |
+| :--- | :--- | :--- | :--- |
+| Runs completely offline inside your browser — no accounts, no analytics, no telemetry. | Install once and you're protected immediately across every site. | Blocks rogue ad tabs without breaking legitimate sign-in popups or download links. | Supports Chrome, Edge, Brave, Opera, Vivaldi, and all Chromium browsers. |
+
+---
+
+## 🚀 Install in 30 Seconds
+
+### Option 1: Download ZIP (Recommended)
+
+1. **Download the latest release:** 👉 [**`Brave-Mini-by-MS-v3.0.1.zip`**](https://github.com/Mohiuddin0035/brave-mini-by-mss/releases/latest/download/Brave-Mini-by-MS-v3.0.1.zip) (or open the [**Releases page**](https://github.com/Mohiuddin0035/brave-mini-by-mss/releases)).
+2. **Extract (unzip)** the file to a permanent folder (e.g., `C:\Extensions\Brave-Mini-by-MS`).
+   > ⚠️ **Keep this folder!** Your browser loads the extension directly from here, so don't delete it after installing.
+3. Open your browser's Extensions page:
+   - **Chrome:** `chrome://extensions`
+   - **Edge:** `edge://extensions`
+   - **Brave:** `brave://extensions`
    - **Opera / Vivaldi:** `opera://extensions` or `vivaldi://extensions`
-5. Turn **ON** **Developer mode** (top-right toggle).
-6. Click **Load unpacked** and select the extracted folder (the folder containing `manifest.json`).
-7. Click the puzzle/extensions icon in your browser toolbar and **Pin** **Brave Mini by MS** for quick access.
+4. Turn **ON** **Developer mode** (top-right corner).
+5. Click **Load unpacked** and select the extracted folder (the one containing `manifest.json`).
+6. Click the Extensions puzzle icon in your toolbar and **Pin** **Brave Mini by MS** for quick access.
 
-### Option 2: Clone from Source
+<details>
+<summary><strong>Option 2: Clone from Source (Git)</strong></summary>
 
 ```bash
 git clone https://github.com/Mohiuddin0035/brave-mini-by-mss.git
 ```
 
-Then follow steps **4–7** above and select the cloned folder in **Load unpacked**.
+Then follow steps **3–6** above and select the cloned folder when clicking **Load unpacked**.
+
+</details>
 
 ---
 
-## How to Use
+## 🔧 Dashboard Controls
 
-- **Automatic Protection:** Once installed, all shields are active by default across every website.
-- **Per-Site Toggle:** Click the **Brave Mini** icon in the toolbar and flip the top switch to pause or resume protection for the current website only.
-- **Aggressive Mode & URL Cleaner:** Toggle **Aggressive Ad & Redirect Block** or **Clean Tracking URLs** anytime from the popup without disabling the main shield.
-- **View Blocked Stats:** The toolbar badge shows items blocked on the current tab, while the popup displays your persistent total blocked count.
+Click the **Brave Mini** icon in your toolbar anytime to control your shields:
+
+| Control | What It Does |
+| :--- | :--- |
+| **Per-Site Shield Switch** | Pause or resume protection for the current website with one click. |
+| **Global Shield Engine** | Master switch for ad, tracker, and YouTube protection across all sites. |
+| **Aggressive Ad & Redirect Block** | Extra protection against streaming popunders, click-traps, and redirect tabs. |
+| **Clean Tracking URLs** | Automatically strips tracking parameters (`fbclid`, `gclid`, `utm_*`, etc.) from links. |
+| **Live & Total Stats** | Shows items blocked on the current tab plus your persistent lifetime total. |
 
 ---
 
-## Project Structure
+## 🧩 Under the Hood (For Developers)
+
+<details>
+<summary><strong>Click to expand technical architecture & project structure</strong></summary>
+
+- **Network Filtering (MV3 `declarativeNetRequest`):**
+  - `rules.json` — `217` rules blocking major ad networks, exchanges, push-notification SDKs, and analytics endpoints, plus safe redirects of anti-adblock bait scripts (`adsbygoogle.js`, `gpt.js`, `show_ads.js`) to `bait-stub.js`.
+  - `rules_redirects.json` — `119` rules targeting popunder networks, affiliate redirectors, and third-party `<a ping>` beacons.
+  - `rules_privacy.json` — strips `20` common URL tracking parameters (`fbclid`, `gclid`, `dclid`, `gbraid`, `wbraid`, `msclkid`, `mc_cid`, `mc_eid`, `yclid`, `utm_*`, `igshid`, `_hsenc`, `_hsmi`, `mkt_tok`, `vero_id`) on `main_frame` navigation.
+- **Active JS Shields & Bypasses:**
+  - `shields.js` — neutralizes popunder SDKs, `about:blank` / gesture-less `window.open` popups, detached `a.click()` traps, `<meta http-equiv="refresh">` ad redirects, and transparent full-screen click overlays, while preserving OAuth/login flows and valid user clicks.
+  - `background.js` — manages DNR rule sync, dynamic content script registration, per-tab/lifetime counters, and closes multi-hop rogue ad tabs while restoring focus.
+  - `bypass.js` — anti-adblock overlay & media-player pause bypass engine.
+  - `cosmetic.js` — cosmetic ad element hiding, YouTube ad skipping/fast-forwarding, and telemetry bridge.
 
 ```text
 ├── manifest.json          # Extension manifest (MV3)
-├── background.js          # Service worker: DNR sync, script lifecycle & rogue popup killer
+├── background.js          # Service worker: DNR sync, script lifecycle & rogue tab guard
 ├── bypass.js              # Anti-adblock & media player bypass engine
-├── shields.js             # Aggressive JS popunder, redirect & YouTube ad shield
-├── cosmetic.js            # Cosmetic ad hiding & telemetry bridge
+├── shields.js             # Popunder, redirect & click-trap shield
+├── cosmetic.js            # Cosmetic ad hiding & YouTube ad skipper
 ├── bait-stub.js           # Safe local stub for redirected ad bait scripts
-├── rules.json             # Network ad & tracker blocking rules
-├── rules_redirects.json   # Popunder, redirect & streaming ad blocking rules
-├── rules_privacy.json     # Tracking query parameter removal rules
-├── popup.html             # Extension popup UI
-├── popup.js               # Popup controller & live stats
+├── rules.json             # 217 network ad & tracker rules
+├── rules_redirects.json   # 119 popunder & redirect blocking rules
+├── rules_privacy.json     # URL tracking query parameter cleaner
+├── popup.html             # Brave-style popup dashboard UI
+├── popup.js               # Popup state & live stats controller
 └── icons/                 # Active & paused extension icons (16/32/48/128px)
 ```
 
+</details>
+
 ---
 
-## Author
-
-Created by **MS ([Mohiuddin0035](https://github.com/Mohiuddin0035))**
-
+<p align="center">
+  Made by <strong>MS (<a href="https://github.com/Mohiuddin0035">Mohiuddin0035</a>)</strong>
+</p>
