@@ -158,8 +158,24 @@ async function updateBypassAndShieldScripts() {
       ...(excludeMatches.length ? { excludeMatches } : {})
     };
 
+    const bypassExcludeMatches = [
+      '*://*.spotify.com/*',
+      '*://spotify.com/*',
+      '*://*.scdn.co/*',
+      '*://*.spotifycdn.com/*',
+      ...excludeMatches
+    ];
+
     const desired = [
-      { id: 'bm-bypass-main', js: ['bypass.js'], world: 'MAIN', ...commonOpts },
+      {
+        id: 'bm-bypass-main',
+        js: ['bypass.js'],
+        world: 'MAIN',
+        matches: ['<all_urls>'],
+        runAt: 'document_start',
+        allFrames: true,
+        excludeMatches: bypassExcludeMatches
+      },
       { id: 'bm-shields-main', js: ['shields.js'], world: 'MAIN', ...commonOpts },
       { id: 'bm-cosmetic-iso', js: ['cosmetic.js'], world: 'ISOLATED', ...commonOpts }
     ];
@@ -260,16 +276,17 @@ function ensureInit() {
 
   initPromise = new Promise((resolve) => {
     chrome.storage.local.get(DEFAULT_SETTINGS, (data) => {
+      const s = (data && typeof data === 'object') ? data : DEFAULT_SETTINGS;
       currentSettings = {
-        enabled: Boolean(data.enabled),
-        aggressiveMode: Boolean(data.aggressiveMode),
-        autoCloseRedirectTabs: data.autoCloseRedirectTabs !== false,
-        cleanUrls: Boolean(data.cleanUrls),
-        disabledSites: Array.isArray(data.disabledSites) ? data.disabledSites : [],
-        stats: data.stats && typeof data.stats === 'object'
+        enabled: s.enabled !== undefined ? Boolean(s.enabled) : true,
+        aggressiveMode: s.aggressiveMode !== undefined ? Boolean(s.aggressiveMode) : true,
+        autoCloseRedirectTabs: s.autoCloseRedirectTabs !== false,
+        cleanUrls: s.cleanUrls !== undefined ? Boolean(s.cleanUrls) : true,
+        disabledSites: Array.isArray(s.disabledSites) ? s.disabledSites : [],
+        stats: s.stats && typeof s.stats === 'object'
           ? {
-              adsBlocked: Number(data.stats.adsBlocked) || 0,
-              redirectsBlocked: Number(data.stats.redirectsBlocked) || 0
+              adsBlocked: Number(s.stats.adsBlocked) || 0,
+              redirectsBlocked: Number(s.stats.redirectsBlocked) || 0
             }
           : { adsBlocked: 0, redirectsBlocked: 0 }
       };
@@ -286,12 +303,13 @@ ensureInit().then(() => syncAll());
 chrome.runtime.onInstalled.addListener(() => {
   ensureInit().then(() => {
     chrome.storage.local.get(Object.keys(DEFAULT_SETTINGS), (existing) => {
+      const ex = (existing && typeof existing === 'object') ? existing : {};
       const missing = {};
       for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) {
-        if (existing[k] === undefined) missing[k] = v;
+        if (ex[k] === undefined) missing[k] = v;
       }
       if (Object.keys(missing).length > 0) {
-        chrome.storage.local.set(missing);
+        chrome.storage.local.set(missing).catch(() => {});
       }
     });
   });

@@ -375,7 +375,8 @@
       pushCount = 0;
     }
     pushCount++;
-    if (isAggressive() && pushCount > 5) {
+    const isSameOrigin = !url || resolveUrl(url)?.origin === location.origin;
+    if (isAggressive() && !isSameOrigin && pushCount > 25) {
       reportBlocked('redirect', 'history-flood');
       return;
     }

@@ -101,7 +101,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 stats: { adsBlocked: 0, redirectsBlocked: 0 }
               },
               (data) => {
-                renderState({ ...data, tabStats: { ads: 0, redirects: 0 }, currentHost: '', siteEnabled: true });
+                const s = (data && typeof data === 'object') ? data : {
+                  enabled: true,
+                  aggressiveMode: true,
+                  autoCloseRedirectTabs: true,
+                  cleanUrls: true,
+                  stats: { adsBlocked: 0, redirectsBlocked: 0 }
+                };
+                renderState({ ...s, tabStats: { ads: 0, redirects: 0 }, currentHost: '', siteEnabled: true });
               }
             );
             return;
