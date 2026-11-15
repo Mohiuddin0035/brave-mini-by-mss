@@ -91,5 +91,79 @@
       }).catch(() => {});
     } catch (e) {}
   });
+
+  // Smart Intentional Click Detector (ISOLATED world)
+  // Reliably distinguishes deliberate button/link clicks from random/background ad clicks
+  const ACTION_KEYWORDS = /(continue|download|destination|get link|generate link|proceed|verify|next|start|submit|visit|direct|open|play|server|stream|magnet|torrent|mirror|cloud|drive|file|click here|fast download|free download|skip|confirm|checkout|login|sign in|register)/i;
+
+  function findIntentionalTarget(target) {
+    if (!target || target.nodeType !== 1) return null;
+
+    const clickable = target.closest(
+      'button, a[href], input[type="button"], input[type="submit"], [role="button"], [class*="btn"], [class*="button"], [id*="btn"], [id*="button"]'
+    );
+    if (!clickable) return null;
+
+    try {
+      const cs = window.getComputedStyle(clickable);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.pointerEvents === 'none') {
+        return null;
+      }
+      const rect = clickable.getBoundingClientRect();
+      if (rect.width < 10 || rect.height < 10) return null;
+      // Filter out deceptive full-screen overlay traps
+      const winW = window.innerWidth || 800;
+      const winH = window.innerHeight || 600;
+      if (rect.width >= winW * 0.85 && rect.height >= winH * 0.85) {
+        return null;
+      }
+    } catch (e) {}
+
+    const text = (
+      clickable.innerText ||
+      clickable.textContent ||
+      clickable.value ||
+      clickable.getAttribute('aria-label') ||
+      clickable.title ||
+      ''
+    ).trim();
+
+    const href = clickable.tagName === 'A' ? (clickable.href || clickable.getAttribute('href') || '') : '';
+    const hasKeyword = ACTION_KEYWORDS.test(text) || ACTION_KEYWORDS.test(clickable.className || '') || ACTION_KEYWORDS.test(clickable.id || '');
+
+    return {
+      tagName: clickable.tagName,
+      text: text.slice(0, 100),
+      href: href.slice(0, 500),
+      hasKeyword
+    };
+  }
+
+  let lastSentClickTime = 0;
+  function handlePotentialIntentionalClick(e) {
+    if (!e.isTrusted) return;
+    const now = Date.now();
+    if (now - lastSentClickTime < 350) return;
+
+    const info = findIntentionalTarget(e.target);
+    if (!info) return;
+
+    lastSentClickTime = now;
+    try {
+      chrome.runtime.sendMessage({
+        type: 'BM_INTENTIONAL_CLICK',
+        info: {
+          tagName: info.tagName,
+          text: info.text,
+          href: info.href,
+          hasKeyword: info.hasKeyword,
+          timestamp: now
+        }
+      }).catch(() => {});
+    } catch (err) {}
+  }
+
+  document.addEventListener('pointerdown', handlePotentialIntentionalClick, true);
+  document.addEventListener('click', handlePotentialIntentionalClick, true);
 })();
 

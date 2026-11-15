@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const globalSwitch = document.getElementById('globalSwitch');
   const aggressiveSwitch = document.getElementById('aggressiveSwitch');
+  const tabGuardSwitch = document.getElementById('tabGuardSwitch');
   const cleanUrlsSwitch = document.getElementById('cleanUrlsSwitch');
   const resetStatsBtn = document.getElementById('resetStatsBtn');
 
@@ -26,9 +27,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderState(state) {
     globalSwitch.checked = Boolean(state.enabled);
     aggressiveSwitch.checked = Boolean(state.aggressiveMode);
+    tabGuardSwitch.checked = Boolean(state.autoCloseRedirectTabs !== false);
     cleanUrlsSwitch.checked = Boolean(state.cleanUrls);
 
     aggressiveSwitch.disabled = !state.enabled;
+    tabGuardSwitch.disabled = !state.enabled;
     cleanUrlsSwitch.disabled = !state.enabled;
 
     const hasHost = Boolean(state.currentHost);
@@ -93,6 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
               {
                 enabled: true,
                 aggressiveMode: true,
+                autoCloseRedirectTabs: true,
                 cleanUrls: true,
                 stats: { adsBlocked: 0, redirectsBlocked: 0 }
               },
@@ -137,6 +141,14 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.local.set({ aggressiveMode }, () => {
       refreshPopup();
       reloadActiveTabDelayed();
+    });
+  });
+
+  // Auto-Close Redirect Tabs (Smart Tab Guard) toggle
+  tabGuardSwitch.addEventListener('change', () => {
+    const autoCloseRedirectTabs = tabGuardSwitch.checked;
+    chrome.storage.local.set({ autoCloseRedirectTabs }, () => {
+      refreshPopup();
     });
   });
 

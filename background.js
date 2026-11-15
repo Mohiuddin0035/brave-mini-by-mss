@@ -14,7 +14,7 @@ const ICON_OFF = {
   128: 'icons/icon128-off.png'
 };
 
-const AD_REDIRECT_REGEX = /popads\.net|popcash\.net|propellerads\.com|propellerclick\.com|propu\.sh|dolohen\.com|onclkds\.com|monetag\.com|alwingulla\.com|auredirect\.com|adsterra\.com|highperformanceformat\.com|profitablecpmrate\.com|topcreativeformat\.com|effectivegatecpm\.com|highcpmgate\.com|hilltopads\.net|exoclick\.com|exosrv\.com|realsrv\.com|clickadu\.com|adcash\.com|acscdn\.com|ad-maven\.com|admaven\.com|trafficjunky\.net|juicyads\.com|trafficstars\.com|richads\.com|galaksion\.com|rollerads\.com|evadav\.com|clickaine\.com|zeropark\.com|bidvertiser\.com|tsyndicate\.com|magsrv\.com|pemsrv\.com|wpadmngr\.com|onclickalgo\.com|onclickmax\.com|onclickmega\.com|onclickprediction\.com|onclickperformance\.com|toponclick\.com|dexpredict\.com|nextoptim\.com|notifpush\.com|pushame\.com|pushance\.com|twinrdsrv\.com|adskeeper\.|bidgear\.com|adspyglass\.com|popundertotal\.com|popmyads\.com|plugrush\.com|voluumtrk\.com|bemobtrk\.com|redtrack\.io|rtmark\.net|gloyah\.net|pubfuture\.com|pubadx\.one|betterbannerscloud\.com|doublepimp\.com|adclick\.g\.doubleclick\.net|doubleclick\.net\/pcs\/click|googleadservices\.com\/pagead\/aclk|adf\.ly|bc\.vc|clk\.sh|sh\.st|sengtoo\.|s\.click\.aliexpress\.com|aliexpress\.com\/s\/error|alix\.live|\/afu\.php|\/apu\.php|[?&](zoneid|click_id|subid|adzone)=/i;
+const EXPLICIT_AD_NETWORK_REGEX = /popads\.net|popcash\.net|propellerads\.com|propellerclick\.com|propu\.sh|dolohen\.com|onclkds\.com|monetag\.com|alwingulla\.com|auredirect\.com|adsterra\.com|highperformanceformat\.com|profitablecpmrate\.com|topcreativeformat\.com|effectivegatecpm\.com|highcpmgate\.com|hilltopads\.net|exoclick\.com|exosrv\.com|realsrv\.com|clickadu\.com|adcash\.com|acscdn\.com|ad-maven\.com|admaven\.com|trafficjunky\.net|juicyads\.com|trafficstars\.com|richads\.com|galaksion\.com|rollerads\.com|evadav\.com|clickaine\.com|zeropark\.com|bidvertiser\.com|tsyndicate\.com|magsrv\.com|pemsrv\.com|wpadmngr\.com|onclickalgo\.com|onclickmax\.com|onclickmega\.com|onclickprediction\.com|onclickperformance\.com|toponclick\.com|dexpredict\.com|nextoptim\.com|notifpush\.com|pushame\.com|pushance\.com|twinrdsrv\.com|adskeeper\.|bidgear\.com|adspyglass\.com|popundertotal\.com|popmyads\.com|plugrush\.com|voluumtrk\.com|bemobtrk\.com|redtrack\.io|rtmark\.net|gloyah\.net|pubfuture\.com|pubadx\.one|betterbannerscloud\.com|doublepimp\.com|adclick\.g\.doubleclick\.net|doubleclick\.net\/pcs\/click|googleadservices\.com\/pagead\/aclk|\/afu\.php|\/apu\.php/i;
 
 const SUSPICIOUS_POPUP_TLD_RE = /\.(autos|cfd|icu|rest|monster|cyou|sbs|hair|makeup|quest|boats|yachts|homes|mom|bond|skin|lol)(\/|$|\?)/i;
 
@@ -23,6 +23,7 @@ const SAFE_AUTH_RE = /accounts\.google\.com|github\.com\/login|login\.microsofto
 const DEFAULT_SETTINGS = {
   enabled: true,
   aggressiveMode: true,
+  autoCloseRedirectTabs: true,
   cleanUrls: true,
   disabledSites: [],
   stats: { adsBlocked: 0, redirectsBlocked: 0 }
@@ -31,6 +32,7 @@ const DEFAULT_SETTINGS = {
 let currentSettings = {
   enabled: true,
   aggressiveMode: true,
+  autoCloseRedirectTabs: true,
   cleanUrls: true,
   disabledSites: [],
   stats: { adsBlocked: 0, redirectsBlocked: 0 }
@@ -39,9 +41,10 @@ let currentSettings = {
 let initDone = false;
 let initPromise = null;
 
-const tabStats = new Map();        // tabId -> { ads: number, redirects: number }
-const recentPopupTabs = new Map(); // tabId -> { openerTabId, openerHost, openerRoot, createdAt, domains: Set }
-const lastSafeUrlByTab = new Map();  // tabId -> url
+const tabStats = new Map();               // tabId -> { ads: number, redirects: number }
+const recentPopupTabs = new Map();        // tabId -> { openerTabId, openerHost, openerRoot, createdAt, domains: Set, isIntentional: boolean, clickInfo: object }
+const recentIntentionalClicks = new Map(); // tabId -> { timestamp, text, href, tagName, hasKeyword }
+const lastSafeUrlByTab = new Map();       // tabId -> url
 
 let statsSaveTimer = null;
 function scheduleStatsSave() {
@@ -260,6 +263,7 @@ function ensureInit() {
       currentSettings = {
         enabled: Boolean(data.enabled),
         aggressiveMode: Boolean(data.aggressiveMode),
+        autoCloseRedirectTabs: data.autoCloseRedirectTabs !== false,
         cleanUrls: Boolean(data.cleanUrls),
         disabledSites: Array.isArray(data.disabledSites) ? data.disabledSites : [],
         stats: data.stats && typeof data.stats === 'object'
@@ -308,6 +312,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
     currentSettings.aggressiveMode = Boolean(changes.aggressiveMode.newValue);
     needSync = true;
   }
+  if (changes.autoCloseRedirectTabs) {
+    currentSettings.autoCloseRedirectTabs = changes.autoCloseRedirectTabs.newValue !== false;
+  }
   if (changes.cleanUrls) {
     currentSettings.cleanUrls = Boolean(changes.cleanUrls.newValue);
     needSync = true;
@@ -331,7 +338,7 @@ if (chrome.declarativeNetRequest && chrome.declarativeNetRequest.onRuleMatchedDe
   });
 }
 
-// Surgical Popup & Ad-Redirect Killer (ONLY kills real ad/burner/redirect-chain tabs!)
+// Surgical Popup & Ad-Redirect Killer (Kills rogue ad tabs while protecting user-intended clicks)
 function killPopupTab(tabId, popupInfo) {
   recentPopupTabs.delete(tabId);
   chrome.tabs.remove(tabId).catch(() => {});
@@ -345,7 +352,8 @@ function killPopupTab(tabId, popupInfo) {
 
 async function inspectChildTab(tabId, url) {
   await ensureInit();
-  if (!currentSettings.enabled || !currentSettings.aggressiveMode) return;
+  // If master shields are OFF or Auto-Close Redirect Tabs is toggled OFF, NEVER close any tab!
+  if (!currentSettings.enabled || !currentSettings.autoCloseRedirectTabs) return;
   if (!url || !url.startsWith('http')) return;
 
   const popupInfo = recentPopupTabs.get(tabId);
@@ -358,16 +366,34 @@ async function inspectChildTab(tabId, url) {
   const root = getRootDomain(host);
   if (root) popupInfo.domains.add(root);
 
-  // 1. Kill known ad / popunder / affiliate-spam / burner-TLD popups
-  if (AD_REDIRECT_REGEX.test(url) || (root !== popupInfo.openerRoot && SUSPICIOUS_POPUP_TLD_RE.test(url))) {
+  // 1. If tab was opened from an INTENTIONAL user action (e.g. clicking "Continue to Destination", "Download", etc.):
+  if (popupInfo.isIntentional) {
+    // Only kill if the URL explicitly targets an unmistakable known ad/popunder network
+    if (EXPLICIT_AD_NETWORK_REGEX.test(url)) {
+      killPopupTab(tabId, popupInfo);
+      return;
+    }
+
+    // If it navigates to a valid external destination domain, allow it and release from monitoring
+    // so subsequent redirects (e.g. file storage gateways, mirrors, CDNs) are never blocked or killed
+    if (host && host !== popupInfo.openerHost && !EXPLICIT_AD_NETWORK_REGEX.test(url)) {
+      recentPopupTabs.delete(tabId);
+    }
+    return;
+  }
+
+  // 2. Tab was NOT opened by an intentional button click (e.g. random page click, hidden overlay, or script popunder):
+  if (EXPLICIT_AD_NETWORK_REGEX.test(url) || (root !== popupInfo.openerRoot && SUSPICIOUS_POPUP_TLD_RE.test(url))) {
     killPopupTab(tabId, popupInfo);
     return;
   }
 
-  // 2. Kill aggressive multi-hop ad-rotator chains (>= 3 unrelated external domains in < 6s)
-  const externalDomains = Array.from(popupInfo.domains).filter((d) => d && d !== popupInfo.openerRoot);
-  if (externalDomains.length >= 3) {
-    killPopupTab(tabId, popupInfo);
+  // 3. Multi-hop ad-rotator chains (>= 3 unrelated external domains in < 6s) for non-intentional popups
+  if (currentSettings.aggressiveMode) {
+    const externalDomains = Array.from(popupInfo.domains).filter((d) => d && d !== popupInfo.openerRoot);
+    if (externalDomains.length >= 3) {
+      killPopupTab(tabId, popupInfo);
+    }
   }
 }
 
@@ -378,12 +404,18 @@ chrome.tabs.onCreated.addListener(async (tab) => {
     const openerHost = getHostname(opener.url || '');
     if (!openerHost) return;
 
+    // Check if opener tab had an intentional button or link click recently (< 4.5 seconds)
+    const clickInfo = recentIntentionalClicks.get(tab.openerTabId);
+    const isIntentional = Boolean(clickInfo && (Date.now() - clickInfo.timestamp < 4500));
+
     recentPopupTabs.set(tab.id, {
       openerTabId: tab.openerTabId,
       openerHost,
       openerRoot: getRootDomain(openerHost),
       createdAt: Date.now(),
-      domains: new Set()
+      domains: new Set(),
+      isIntentional,
+      clickInfo: isIntentional ? clickInfo : null
     });
     setTimeout(() => recentPopupTabs.delete(tab.id), 8000);
 
@@ -402,9 +434,9 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   }
 
   ensureInit().then(() => {
-    if (currentSettings.enabled && currentSettings.aggressiveMode && url.startsWith('http')) {
+    if (currentSettings.enabled && currentSettings.aggressiveMode && currentSettings.autoCloseRedirectTabs && url.startsWith('http')) {
       const host = getHostname(url);
-      if (!isSiteDisabled(host) && AD_REDIRECT_REGEX.test(url)) {
+      if (!isSiteDisabled(host) && EXPLICIT_AD_NETWORK_REGEX.test(url)) {
         const prevSafe = lastSafeUrlByTab.get(details.tabId);
         if (prevSafe && getRootDomain(getHostname(prevSafe)) !== getRootDomain(host)) {
           chrome.tabs.update(details.tabId, { url: prevSafe }).catch(() => {});
@@ -412,7 +444,7 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
           return;
         }
       }
-      if (host && !AD_REDIRECT_REGEX.test(url)) {
+      if (host && !EXPLICIT_AD_NETWORK_REGEX.test(url)) {
         lastSafeUrlByTab.set(details.tabId, url);
       }
     }
@@ -434,12 +466,34 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   tabStats.delete(tabId);
   recentPopupTabs.delete(tabId);
+  recentIntentionalClicks.delete(tabId);
   lastSafeUrlByTab.delete(tabId);
 });
 
 // Popup & Content Script Messaging
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || !msg.type) return;
+
+  if (msg.type === 'BM_INTENTIONAL_CLICK') {
+    const openerTabId = sender && sender.tab ? sender.tab.id : -1;
+    if (openerTabId >= 0) {
+      const info = {
+        timestamp: Date.now(),
+        ...(msg.info || {})
+      };
+      recentIntentionalClicks.set(openerTabId, info);
+      setTimeout(() => recentIntentionalClicks.delete(openerTabId), 5000);
+
+      // Backfill any child tab that was created moments ago by this opener
+      for (const [childId, pInfo] of recentPopupTabs.entries()) {
+        if (pInfo.openerTabId === openerTabId && (Date.now() - pInfo.createdAt < 3500)) {
+          pInfo.isIntentional = true;
+          pInfo.clickInfo = info;
+        }
+      }
+    }
+    return;
+  }
 
   if (msg.type === 'BM_BLOCKED') {
     const tabId = sender && sender.tab ? sender.tab.id : -1;
@@ -455,6 +509,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({
         enabled: currentSettings.enabled,
         aggressiveMode: currentSettings.aggressiveMode,
+        autoCloseRedirectTabs: currentSettings.autoCloseRedirectTabs,
         cleanUrls: currentSettings.cleanUrls,
         disabledSites: currentSettings.disabledSites,
         stats: currentSettings.stats,

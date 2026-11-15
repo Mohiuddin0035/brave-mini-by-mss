@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Mohiuddin0035/brave-mini-by-mss/releases/tag/v3.0.1">
-    <img src="https://img.shields.io/badge/Download-v3.0.1%20ZIP-FB542B?style=for-the-badge&logo=github" alt="Download v3.0.1" />
+  <a href="https://github.com/Mohiuddin0035/brave-mini-by-mss/releases/tag/v3.0.2">
+    <img src="https://img.shields.io/badge/Download-v3.0.2%20ZIP-FB542B?style=for-the-badge&logo=github" alt="Download v3.0.2" />
   </a>
   <img src="https://img.shields.io/badge/Manifest-V3-FF7A00?style=for-the-badge" alt="Manifest V3" />
   <img src="https://img.shields.io/badge/Privacy-100%25%20Local-10B981?style=for-the-badge" alt="100% Local" />
@@ -45,8 +45,8 @@
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>🚫 Stops Popups & Forced Redirects</h3>
-      Kills sneaky new-tab popups, invisible click-traps, and fake download/play redirects — while keeping <strong>real play buttons, downloads, and Google/OAuth logins</strong> working.
+      <h3>🚫 Smart Popup & Redirect Tab Guard</h3>
+      Intelligently distinguishes intentional button clicks (e.g. <em>"Continue to Destination"</em>, <em>"Download"</em>) from background click-traps — kills rogue popunders while letting legitimate download tabs open.
     </td>
     <td width="50%" valign="top">
       <h3>🔓 Bypasses Anti-Adblock Walls</h3>
@@ -79,7 +79,7 @@
 
 ### Option 1: Download ZIP (Recommended)
 
-1. **Download the latest release:** 👉 [**`Brave-Mini-by-MS-v3.0.1.zip`**](https://github.com/Mohiuddin0035/brave-mini-by-mss/releases/latest/download/Brave-Mini-by-MS-v3.0.1.zip) (or open the [**Releases page**](https://github.com/Mohiuddin0035/brave-mini-by-mss/releases)).
+1. **Download the latest release:** 👉 [**`Brave-Mini-by-MS-v3.0.2.zip`**](https://github.com/Mohiuddin0035/brave-mini-by-mss/releases/latest/download/Brave-Mini-by-MS-v3.0.2.zip) (or open the [**Releases page**](https://github.com/Mohiuddin0035/brave-mini-by-mss/releases)).
 2. **Extract (unzip)** the file to a permanent folder (e.g., `C:\Extensions\Brave-Mini-by-MS`).
    > ⚠️ **Keep this folder!** Your browser loads the extension directly from here, so don't delete it after installing.
 3. Open your browser's Extensions page:
@@ -112,7 +112,8 @@ Click the **Brave Mini** icon in your toolbar anytime to control your shields:
 | :--- | :--- |
 | **Per-Site Shield Switch** | Pause or resume protection for the current website with one click. |
 | **Global Shield Engine** | Master switch for ad, tracker, and YouTube protection across all sites. |
-| **Aggressive Ad & Redirect Block** | Extra protection against streaming popunders, click-traps, and redirect tabs. |
+| **Aggressive Ad & Redirect Block** | Extra protection against streaming popunders, click-traps, and YouTube ads. |
+| **Auto-Close Redirect Tabs** | Smart Tab Guard toggle: independently pause auto-closing of popup tabs if needed without disabling any ad blocking. |
 | **Clean Tracking URLs** | Automatically strips tracking parameters (`fbclid`, `gclid`, `utm_*`, etc.) from links. |
 | **Live & Total Stats** | Shows items blocked on the current tab plus your persistent lifetime total. |
 
@@ -128,10 +129,10 @@ Click the **Brave Mini** icon in your toolbar anytime to control your shields:
   - `rules_redirects.json` — `119` rules targeting popunder networks, affiliate redirectors, and third-party `<a ping>` beacons.
   - `rules_privacy.json` — strips `20` common URL tracking parameters (`fbclid`, `gclid`, `dclid`, `gbraid`, `wbraid`, `msclkid`, `mc_cid`, `mc_eid`, `yclid`, `utm_*`, `igshid`, `_hsenc`, `_hsmi`, `mkt_tok`, `vero_id`) on `main_frame` navigation.
 - **Active JS Shields & Bypasses:**
-  - `shields.js` — neutralizes popunder SDKs, `about:blank` / gesture-less `window.open` popups, detached `a.click()` traps, `<meta http-equiv="refresh">` ad redirects, and transparent full-screen click overlays, while preserving OAuth/login flows and valid user clicks.
-  - `background.js` — manages DNR rule sync, dynamic content script registration, per-tab/lifetime counters, and closes multi-hop rogue ad tabs while restoring focus.
+  - `shields.js` — neutralizes popunder SDKs, gesture-less `window.open` popups, detached `a.click()` traps, `<meta http-equiv="refresh">` ad redirects, and transparent full-screen click overlays, while preserving OAuth/login flows and valid user clicks.
+  - `background.js` — manages DNR rule sync, dynamic content script registration, per-tab/lifetime counters, and Smart Tab Guard (accurately terminates rogue ad tabs while shielding user-initiated destination/download tabs, with an independent toggle).
   - `bypass.js` — anti-adblock overlay & media-player pause bypass engine.
-  - `cosmetic.js` — cosmetic ad element hiding, YouTube ad skipping/fast-forwarding, and telemetry bridge.
+  - `cosmetic.js` — cosmetic ad element hiding, YouTube ad skipping/fast-forwarding, telemetry bridge, and user-intent click detector (distinguishes intentional button/action clicks from background popunder traps).
 
 ```text
 ├── manifest.json          # Extension manifest (MV3)

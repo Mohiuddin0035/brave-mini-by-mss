@@ -4,7 +4,7 @@
   if (window.__braveMiniShieldsLoaded) return;
   window.__braveMiniShieldsLoaded = true;
 
-  const AD_URL_RE = /popads|popcash|propellerads|propellerclick|propu\.sh|dolohen|onclkds|monetag|alwingulla|auredirect|adsterra|highperformanceformat|profitablecpmrate|topcreativeformat|effectivegatecpm|highcpmgate|hilltopads|exoclick|exosrv|realsrv|clickadu|adcash|acscdn|ad-maven|admaven|trafficjunky|juicyads|trafficstars|richads|galaksion|rollerads|evadav|clickaine|zeropark|bidvertiser|tsyndicate|magsrv|pemsrv|wpadmngr|onclickalgo|onclickmax|onclickmega|onclickprediction|onclickperformance|toponclick|dexpredict|nextoptim|notifpush|pushame|pushance|twinrdsrv|adskeeper|bidgear|doubleclick\.net|googlesyndication|googleadservices\.com\/pagead\/aclk|adclick\.g\.|adf\.ly|bc\.vc|clk\.sh|sh\.st|adspyglass|popundertotal|popmyads|plugrush|voluumtrk|bemobtrk|redtrack\.io|rtmark\.net|gloyah\.net|pubfuture|pubadx|betterbannerscloud|doublepimp|taboola\.com|outbrain\.com|mgid\.com|revcontent\.com|criteo\.|adnxs\.com|rubiconproject|pubmatic|openx\.net|casalemedia|smartadserver|adform\.net|hotjar\.com|clarity\.ms|mc\.yandex\.ru|connect\.facebook\.net\/.*fbevents|facebook\.com\/tr\b|google-analytics\.com|googletagmanager\.com|analytics\.tiktok\.com|scorecardresearch|quantserve|sengtoo|s\.click\.aliexpress|aliexpress\.com\/s\/error|alix\.live|\/afu\.php|\/apu\.php|[?&](zoneid|click_id|subid|adzone)=/i;
+  const AD_URL_RE = /popads|popcash|propellerads|propellerclick|propu\.sh|dolohen|onclkds|monetag|alwingulla|auredirect|adsterra|highperformanceformat|profitablecpmrate|topcreativeformat|effectivegatecpm|highcpmgate|hilltopads|exoclick|exosrv|realsrv|clickadu|adcash|acscdn|ad-maven|admaven|trafficjunky|juicyads|trafficstars|richads|galaksion|rollerads|evadav|clickaine|zeropark|bidvertiser|tsyndicate|magsrv|pemsrv|wpadmngr|onclickalgo|onclickmax|onclickmega|onclickprediction|onclickperformance|toponclick|dexpredict|nextoptim|notifpush|pushame|pushance|twinrdsrv|adskeeper|bidgear|doubleclick\.net|googlesyndication|googleadservices\.com\/pagead\/aclk|adclick\.g\.|adspyglass|popundertotal|popmyads|plugrush|voluumtrk|bemobtrk|redtrack\.io|rtmark\.net|gloyah\.net|pubfuture|pubadx|betterbannerscloud|doublepimp|taboola\.com|outbrain\.com|mgid\.com|revcontent\.com|criteo\.|adnxs\.com|rubiconproject|pubmatic|openx\.net|casalemedia|smartadserver|adform\.net|hotjar\.com|clarity\.ms|mc\.yandex\.ru|connect\.facebook\.net\/.*fbevents|facebook\.com\/tr\b|google-analytics\.com|googletagmanager\.com|analytics\.tiktok\.com|scorecardresearch|quantserve|sengtoo|s\.click\.aliexpress|aliexpress\.com\/s\/error|alix\.live|\/afu\.php|\/apu\.php/i;
 
   const SUSPICIOUS_POPUP_TLD_RE = /\.(autos|cfd|icu|rest|monster|cyou|sbs|hair|makeup|quest|boats|yachts|homes|mom|bond|skin|lol)(\/|$|\?)/i;
 
@@ -151,7 +151,6 @@
   const origWindowOpen = window.open;
   window.open = function (url, target, features) {
     const urlStr = url == null ? '' : String(url).trim();
-    const featStr = features == null ? '' : String(features);
 
     if (urlStr && SAFE_AUTH_RE.test(urlStr)) {
       return origWindowOpen.apply(window, arguments);
@@ -163,18 +162,12 @@
     }
 
     if (isAggressive()) {
-      if (!urlStr || urlStr === 'about:blank' || /^javascript:/i.test(urlStr)) {
-        reportBlocked('redirect', urlStr || 'blank-popunder');
-        return createFakeWindow();
-      }
-
       const userActive = navigator.userActivation ? navigator.userActivation.isActive : false;
       if (!userActive) {
-        reportBlocked('redirect', urlStr);
+        reportBlocked('redirect', urlStr || 'gestureless-popunder');
         return createFakeWindow();
       }
-
-      if (featStr && /(width=|height=|left=|top=|menubar=|toolbar=|status=|resizable=)/i.test(featStr)) {
+      if (/^javascript:/i.test(urlStr)) {
         reportBlocked('redirect', urlStr);
         return createFakeWindow();
       }
