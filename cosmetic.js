@@ -80,11 +80,13 @@
 
   function safeSendMessage(msg) {
     try {
-      if (!chrome.runtime || !chrome.runtime.sendMessage) return;
-      chrome.runtime.sendMessage(msg, () => {
-        if (chrome.runtime.lastError) {
-          // Explicitly read lastError to prevent "Unchecked runtime.lastError: No SW"
-          void chrome.runtime.lastError;
+      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id || !chrome.runtime.sendMessage) {
+        return;
+      }
+      chrome.runtime.sendMessage(msg, function () {
+        var err = chrome.runtime.lastError;
+        if (err) {
+          return;
         }
       });
     } catch (e) {}

@@ -52,7 +52,7 @@
     }
     if (typeof window.googletag === 'undefined') {
       window.googletag = {
-        cmd: [],
+        cmd: { push: function (fn) { try { if (typeof fn === 'function') fn(); } catch (e) {} } },
         apiReady: true,
         pubadsReady: true,
         pubads: () => noopPubads,
@@ -63,26 +63,28 @@
     }
   } catch (e) {}
 
-  // Lock ad blocker status variables so detector scripts cannot set them to true/false
-  try {
-    Object.defineProperty(window, 'canRunAds', { get: () => true, set: () => {}, configurable: true });
-    Object.defineProperty(window, 'isAdBlockActive', { get: () => false, set: () => {}, configurable: true });
-    Object.defineProperty(window, 'adBlockDetected', { get: () => false, set: () => {}, configurable: true });
-    Object.defineProperty(window, 'hasAdblock', { get: () => false, set: () => {}, configurable: true });
-    Object.defineProperty(window, 'adsBlocked', { get: () => false, set: () => {}, configurable: true });
-    Object.defineProperty(window, 'abp', { get: () => false, set: () => {}, configurable: true });
-    Object.defineProperty(window, 'uAdBlock', { get: () => false, set: () => {}, configurable: true });
-    Object.defineProperty(window, 'google_ad_status', { get: () => 1, set: () => {}, configurable: true });
-  } catch (e) {
-    window.canRunAds = true;
-    window.isAdBlockActive = false;
-    window.adBlockDetected = false;
-    window.hasAdblock = false;
-    window.adsBlocked = false;
-    window.abp = false;
-    window.uAdBlock = false;
-    window.google_ad_status = 1;
+  // Lock ad blocker status variables so detector scripts cannot mark them blocked
+  function lockAdProp(prop, val) {
+    try {
+      Object.defineProperty(window, prop, {
+        get: () => val,
+        set: () => {},
+        configurable: true
+      });
+    } catch (e) {
+      window[prop] = val;
+    }
   }
+
+  lockAdProp('canRunAds', true);
+  lockAdProp('isAdBlockActive', false);
+  lockAdProp('adBlockDetected', false);
+  lockAdProp('hasAdblock', false);
+  lockAdProp('adsBlocked', false);
+  lockAdProp('adblock', false);
+  lockAdProp('abp', false);
+  lockAdProp('uAdBlock', false);
+  lockAdProp('google_ad_status', 1);
 
   const noopDetector = {
     onDetected: function () { return this; },
@@ -111,21 +113,21 @@
     if (typeof window.FuckAdBlock === 'undefined') window.FuckAdBlock = function () { return noopDetector; };
   } catch (e) {}
 
-  // 3. Intercept Bait Fetch Requests
-  // Matches ad networks and bait paths that anti-adblock scripts fetch to test for blocking
-  const BAIT_URL_REGEX = /(^|\/)(adsbygoogle\.js|show_ads\.js|gpt\.js|ad_status|sodar|pagead|doubleclick|googlesyndication|googleadservices|adservice)(\.|\/|$|\?)|(\/ads?\.(js|php|html|json))|(\/pagead\/)/i;
+  // 3. Intercept Bait Fetch Requests (Safe & Targeted)
+  // Strictly matches known anti-adblock test scripts, NEVER media or streaming chunks
+  const BAIT_URL_REGEX = /(^|\/)(adsbygoogle\.js|show_ads\.js|gpt\.js|ad_status|sodar|pagead|doubleclick|googlesyndication|googleadservices)(\.|\/|$|\?)|(\/(?:ads?|advert)\.(?:js|json))($|\?)/i;
+  const MEDIA_EXT_REGEX = /\.(m3u8|ts|m4s|mp4|webm|key|vtt|srt)($|\?)/i;
 
   const origFetch = window.fetch;
   window.fetch = async function (...args) {
     const rawUrl = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
     const url = String(rawUrl);
 
-    if (url && BAIT_URL_REGEX.test(url)) {
+    if (url && !MEDIA_EXT_REGEX.test(url) && BAIT_URL_REGEX.test(url)) {
       if (url.includes('generate_204')) {
         return new Response(null, { status: 204 });
       }
 
-      // If the request specifically expects JSON (or headers contain application/json)
       const opts = args[1] || {};
       const acceptHeader = (opts.headers && (opts.headers.Accept || opts.headers.accept || opts.headers['content-type'])) || '';
       const isJson = /json|ad_status/i.test(url) || /application\/json/i.test(String(acceptHeader));
@@ -167,7 +169,7 @@
   };
 
   XMLHttpRequest.prototype.send = function (body) {
-    if (this.__bmUrl && BAIT_URL_REGEX.test(this.__bmUrl)) {
+    if (this.__bmUrl && !MEDIA_EXT_REGEX.test(this.__bmUrl) && BAIT_URL_REGEX.test(this.__bmUrl)) {
       setTimeout(() => {
         try {
           Object.defineProperty(this, 'status', { value: 200, writable: true });
@@ -178,7 +180,13 @@
             : 'window.adsbygoogle={loaded:true};window.canRunAds=true;';
           Object.defineProperty(this, 'responseText', { value: respText, writable: true });
           Object.defineProperty(this, 'response', { value: respText, writable: true });
+          if (typeof this.onreadystatechange === 'function') {
+            try { this.onreadystatechange(new Event('readystatechange')); } catch (e) {}
+          }
           this.dispatchEvent(new Event('readystatechange'));
+          if (typeof this.onload === 'function') {
+            try { this.onload(new Event('load')); } catch (e) {}
+          }
           this.dispatchEvent(new Event('load'));
           this.dispatchEvent(new Event('loadend'));
         } catch (e) {}
@@ -188,69 +196,21 @@
     return origXhrSend.apply(this, arguments);
   };
 
-  // 5. Intercept Bait Script & Image Elements
-  function isBaitScriptSrc(src) {
-    if (!src) return false;
-    return BAIT_URL_REGEX.test(src) || /(^|\/)(ads?\.js|pagead\.js|show_ads\.js|adsbygoogle\.js|gpt\.js|ad_status)($|\?)/i.test(src);
-  }
-
-  const origAppend = Element.prototype.appendChild;
-  Element.prototype.appendChild = function (node) {
-    if (node && node.tagName === 'SCRIPT' && node.src && isBaitScriptSrc(node.src)) {
-      setTimeout(() => {
-        try {
-          if (typeof node.onload === 'function') node.onload(new Event('load'));
-          node.dispatchEvent(new Event('load'));
-        } catch (e) {}
-      }, 5);
-      return node;
-    }
-    return origAppend.call(this, node);
-  };
-
-  const origInsertBefore = Node.prototype.insertBefore;
-  Node.prototype.insertBefore = function (node, ref) {
-    if (node && node.tagName === 'SCRIPT' && node.src && isBaitScriptSrc(node.src)) {
-      setTimeout(() => {
-        try {
-          if (typeof node.onload === 'function') node.onload(new Event('load'));
-          node.dispatchEvent(new Event('load'));
-        } catch (e) {}
-      }, 5);
-      return node;
-    }
-    return origInsertBefore.call(this, node, ref);
-  };
-
-  const origImageSrc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
-  if (origImageSrc && origImageSrc.set) {
-    Object.defineProperty(HTMLImageElement.prototype, 'src', {
-      set(val) {
-        if (typeof val === 'string' && BAIT_URL_REGEX.test(val)) {
-          setTimeout(() => {
-            try {
-              if (typeof this.onload === 'function') this.onload(new Event('load'));
-              this.dispatchEvent(new Event('load'));
-            } catch (e) {}
-          }, 5);
-        }
-        return origImageSrc.set.call(this, val);
-      },
-      get() {
-        return origImageSrc.get.call(this);
-      }
-    });
-  }
-
-  // 6. Defeat Bait Element Offset / Client Dimensions Checks
-  // Returns positive dimensions ONLY for collapsed bait ad elements
-  // NEVER touches real video elements, iframe, or controls!
-  const BAIT_ELEMENT_REGEX = /\b(pub_300|pub_728|text-ad|ad-unit|ad-zone|ad-slot|adsbygoogle|ad-placement)\b/i;
+  // 5. Defeat DOM Bait Element Detection
+  // When detector scripts create collapsed bait containers to test if adblock hides them,
+  // we spoof dimensions AND getComputedStyle so the check passes 100%!
+  const BAIT_ELEMENT_REGEX = /\b(ads?|adsbox|afs_ads|ad-banner|banner-ad|advert|advertisement|pub_300|pub_728|text-ad|ad-unit|ad_unit|ad-zone|adzone|ad-slot|adslot|adsbygoogle|ad-placement|ad-holder|ad-wrapper|ad-shield|ad_status|adblock-detector|adblock-test)\b/i;
 
   function isAdBaitElement(el) {
     if (!el || el.nodeType !== 1) return false;
-    if (el.tagName === 'VIDEO' || el.tagName === 'AUDIO' || el.tagName === 'IFRAME') return false;
-    if (el.closest && el.closest('.jw-controls, .vjs-control-bar, .plyr__controls, [class*="control"], [class*="player"]')) {
+    const tag = el.tagName;
+    if (tag === 'VIDEO' || tag === 'AUDIO' || tag === 'IFRAME' || tag === 'CANVAS' || tag === 'SVG' || tag === 'BUTTON' || tag === 'INPUT' || tag === 'TRACK' || tag === 'SOURCE') {
+      return false;
+    }
+    // Never touch elements containing real media
+    if (el.querySelector('video, audio, iframe')) return false;
+    // Never touch player control bars
+    if (el.closest && el.closest('.jw-controls, .vjs-control-bar, .plyr__controls, .art-controls, [class*="controls-bar"], [class*="control-bar"]')) {
       return false;
     }
     const cls = String(el.className || '');
@@ -312,11 +272,32 @@
     return rect;
   };
 
-  // 7. Surgical AdBlock Warning Dialog Remover & Video Controls Protector
-  // Eliminates ONLY the cancer cell (the specific warning modal card)
-  // NEVER hides parent containers, NEVER touches player controls!
+  // Crucial: Spoof getComputedStyle so style.display === 'none' checks PASS
+  const origGetComputedStyle = window.getComputedStyle;
+  window.getComputedStyle = function (elt, pseudoElt) {
+    const style = origGetComputedStyle.apply(this, arguments);
+    if (elt && isAdBaitElement(elt)) {
+      return new Proxy(style, {
+        get(target, prop) {
+          if (prop === 'display') return 'block';
+          if (prop === 'visibility') return 'visible';
+          if (prop === 'opacity') return '1';
+          if (prop === 'height') return '100px';
+          if (prop === 'width') return '300px';
+          const val = target[prop];
+          return typeof val === 'function' ? val.bind(target) : val;
+        }
+      });
+    }
+    return style;
+  };
+
+  // 6. Surgical AdBlock Warning Dialog Neutralizer (Fallback)
+  // If a warning modal appears, remove ONLY that specific modal dialog card
+  // Never hides player elements or touches video controls!
   const ADBLOCK_OVERLAY_TEXT_REGEX = /ad\s*blocker\s*detected|disable\s*your\s*ad\s*blocker|please\s*disable\s*ad\s*blocker|turn\s*off\s*your\s*ad\s*blocker|adblock\s*detected|blocker\s*detected/i;
 
+  let overlayCleanupTimer = null;
   function removeAdBlockOverlay() {
     // 1. Remove StreamTape overlay if present
     const stOverlay = document.querySelector('.sp-adblock-overlay');
@@ -348,13 +329,6 @@
           targetModal = dialogAncestor;
         }
 
-        // Try clicking recheck / reload button if present
-        const recheckBtn = targetModal.querySelector('button, a, .btn, [role="button"]');
-        if (recheckBtn && /recheck|disabled|continue|i've disabled/i.test(recheckBtn.innerText || '')) {
-          try { recheckBtn.click(); } catch (err) {}
-        }
-
-        // Surgically remove or hide ONLY this specific dialog card
         try {
           targetModal.remove();
         } catch (err) {
@@ -373,30 +347,18 @@
         }
       }
     }
-
-    // 3. Ensure all Video Player Controls are visible and interactive
-    const controls = document.querySelectorAll(
-      '.jw-controls, .vjs-control-bar, .plyr__controls, [class*="control-bar"], [class*="controls-bar"], [class*="player-controls"], .cf-controls-panel, .controls'
-    );
-    for (const ctrl of controls) {
-      if (ctrl.style.display === 'none') {
-        ctrl.style.removeProperty('display');
-      }
-      if (ctrl.style.visibility === 'hidden') {
-        ctrl.style.removeProperty('visibility');
-      }
-      if (ctrl.style.pointerEvents === 'none') {
-        ctrl.style.removeProperty('pointer-events');
-      }
-      if (ctrl.style.opacity === '0') {
-        ctrl.style.removeProperty('opacity');
-      }
-    }
   }
 
-  // Run immediately and observe DOM changes
+  function scheduleOverlayCleanup() {
+    if (overlayCleanupTimer) return;
+    overlayCleanupTimer = setTimeout(() => {
+      overlayCleanupTimer = null;
+      removeAdBlockOverlay();
+    }, 250);
+  }
+
   removeAdBlockOverlay();
-  const observer = new MutationObserver(removeAdBlockOverlay);
+  const observer = new MutationObserver(scheduleOverlayCleanup);
   observer.observe(document.documentElement, { childList: true, subtree: true });
   window.addEventListener('DOMContentLoaded', removeAdBlockOverlay);
   window.addEventListener('load', removeAdBlockOverlay);

@@ -221,9 +221,9 @@ async function updateNetRequestRules() {
     await chrome.declarativeNetRequest.updateEnabledRulesets({
       enableRulesetIds,
       disableRulesetIds
-    });
+    }).catch(() => {});
 
-    const existing = await chrome.declarativeNetRequest.getDynamicRules();
+    const existing = await chrome.declarativeNetRequest.getDynamicRules().catch(() => []);
     const removeRuleIds = existing.map((r) => r.id);
     const addRules = [];
 
@@ -244,7 +244,7 @@ async function updateNetRequestRules() {
       });
     }
 
-    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
+    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules }).catch(() => {});
   } catch (err) {
     console.error('DNR sync error:', err);
   }
@@ -510,13 +510,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
       }
     }
-    return;
+    sendResponse({ ok: true });
+    return false;
   }
 
   if (msg.type === 'BM_BLOCKED') {
     const tabId = sender && sender.tab ? sender.tab.id : -1;
     recordBlock(tabId, msg.kind === 'redirect' ? 'redirect' : 'ad');
-    return;
+    sendResponse({ ok: true });
+    return false;
   }
 
   if (msg.type === 'BM_GET_TAB_STATE') {
