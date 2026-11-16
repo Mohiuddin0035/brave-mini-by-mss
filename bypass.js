@@ -85,6 +85,14 @@
   lockAdProp('abp', false);
   lockAdProp('uAdBlock', false);
   lockAdProp('google_ad_status', 1);
+  lockAdProp('adblocker', false);
+  lockAdProp('isAdblock', false);
+  lockAdProp('adblockerDetected', false);
+  lockAdProp('hasAdBlocker', false);
+  lockAdProp('adblock_enabled', false);
+  lockAdProp('adBlockerOn', false);
+  lockAdProp('adBlocked', false);
+  lockAdProp('ad_blocker', false);
 
   const noopDetector = {
     onDetected: function () { return this; },
@@ -209,8 +217,8 @@
     }
     // Never touch elements containing real media
     if (el.querySelector('video, audio, iframe')) return false;
-    // Never touch player control bars
-    if (el.closest && el.closest('.jw-controls, .vjs-control-bar, .plyr__controls, .art-controls, [class*="controls-bar"], [class*="control-bar"]')) {
+    // Never touch player control bars, player layers, or state icons
+    if (el.closest && el.closest('.artplayer-app, .art-video-player, [class*="player"], .jw-controls, .vjs-control-bar, .plyr__controls, .art-controls, .art-state, .art-icon-state, .art-state-play, [class*="controls-bar"], [class*="control-bar"]')) {
       return false;
     }
     const cls = String(el.className || '');
@@ -272,7 +280,7 @@
     return rect;
   };
 
-  // Crucial: Spoof getComputedStyle so style.display === 'none' checks PASS
+  // Spoof getComputedStyle so style.display === 'none' checks PASS on bait elements
   const origGetComputedStyle = window.getComputedStyle;
   window.getComputedStyle = function (elt, pseudoElt) {
     const style = origGetComputedStyle.apply(this, arguments);
@@ -284,6 +292,16 @@
           if (prop === 'opacity') return '1';
           if (prop === 'height') return '100px';
           if (prop === 'width') return '300px';
+          if (prop === 'getPropertyValue') {
+            return function (p) {
+              if (p === 'display') return 'block';
+              if (p === 'visibility') return 'visible';
+              if (p === 'opacity') return '1';
+              if (p === 'height') return '100px';
+              if (p === 'width') return '300px';
+              return target.getPropertyValue(p);
+            };
+          }
           const val = target[prop];
           return typeof val === 'function' ? val.bind(target) : val;
         }
@@ -316,6 +334,12 @@
       if (el.querySelector('video, audio, iframe')) continue;
 
       if (ADBLOCK_OVERLAY_TEXT_REGEX.test(el.innerText)) {
+        // If there is a "Recheck" or "I've disabled it" button, click it first!
+        const recheckBtn = el.querySelector('button, a, .btn, [role="button"]');
+        if (recheckBtn && /recheck|disabled|continue|i've disabled/i.test(recheckBtn.innerText || '')) {
+          try { recheckBtn.click(); } catch (err) {}
+        }
+
         let targetModal = el;
         const dialogAncestor = el.closest(
           '[role="dialog"], [role="alertdialog"], .modal, .overlay, .backdrop, [class*="adblock"], [id*="adblock"]'
@@ -362,4 +386,110 @@
   observer.observe(document.documentElement, { childList: true, subtree: true });
   window.addEventListener('DOMContentLoaded', removeAdBlockOverlay);
   window.addEventListener('load', removeAdBlockOverlay);
+
+  // 7. Universal Stream Player Playback Engine
+  // Guarantees reliable play/pause interaction on Artplayer, Video.js, JW Player, and embed streams
+  let userIntendedPause = false;
+  let lastUserPlayTime = 0;
+
+  // Protect against rogue ad-scripts calling video.pause() immediately after user clicks play
+  const origVideoPause = HTMLMediaElement.prototype.pause;
+  HTMLMediaElement.prototype.pause = function () {
+    if (!userIntendedPause && (Date.now() - lastUserPlayTime < 3000)) {
+      return;
+    }
+    return origVideoPause.apply(this, arguments);
+  };
+
+  const PLAY_TRIGGER_SELECTOR = [
+    '.art-state',
+    '.art-icon-state',
+    '.art-mask',
+    '.art-video',
+    '.art-control-playAndPause',
+    '.vjs-big-play-button',
+    '.vjs-play-control',
+    '.vjs-tech',
+    '.jw-display-icon-container',
+    '.jw-icon-playback',
+    '.jw-video',
+    '.plyr__control--overlaid',
+    'button[data-plyr="play"]',
+    '.sp-root',
+    '.sp-chrome',
+    '[class*="play-button"]',
+    '[class*="play-btn"]',
+    '[class*="play_btn"]',
+    '[class*="player-play"]',
+    '[class*="art-state"]',
+    '[aria-label*="Play" i]',
+    '[title*="Play" i]'
+  ].join(', ');
+
+  document.addEventListener('click', (e) => {
+    const isVideo = e.target.tagName === 'VIDEO';
+    const trigger = e.target.closest ? e.target.closest(PLAY_TRIGGER_SELECTOR) : null;
+    const playerContainer = e.target.closest
+      ? e.target.closest('.artplayer-app, .art-video-player, .player-container, #player, [class*="player"], .jwplayer, .video-js, .sp-root')
+      : null;
+
+    if (!isVideo && !trigger && !playerContainer) return;
+
+    // Do not interfere with seek bar, volume, settings, or subtitles widgets
+    const isControlWidget = e.target.closest && e.target.closest(
+      '.art-control-progress, .art-control-volume, .art-control-setting, .art-control-subtitle, .art-control-fullscreen, .vjs-progress-control, .vjs-volume-panel, .jw-slider, input, select'
+    );
+    if (isControlWidget) return;
+
+    // Find the associated video element
+    const video = isVideo
+      ? e.target
+      : (playerContainer ? playerContainer.querySelector('video') : document.querySelector('video'));
+
+    if (!video) return;
+
+    // Check if the user deliberately clicked a pause control button
+    const isPauseBtn = e.target.closest && e.target.closest(
+      '.art-icon-pause, [aria-label*="Pause" i], [title*="Pause" i], .vjs-playing .vjs-play-control'
+    );
+
+    if (isPauseBtn) {
+      userIntendedPause = true;
+      video.pause();
+      const stateIcon = (playerContainer || document).querySelector('.art-state, .vjs-big-play-button, .jw-display-icon-container');
+      if (stateIcon) {
+        stateIcon.style.removeProperty('display');
+      }
+      return;
+    }
+
+    // If the video is paused, trigger play!
+    if (video.paused) {
+      userIntendedPause = false;
+      lastUserPlayTime = Date.now();
+
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {
+          // If browser autoplay policy blocked with audio, retry unmuted
+          video.muted = false;
+          video.play().catch(() => {});
+        });
+      }
+
+      // Hide the big center play icon immediately for instant visual feedback
+      const stateIcon = (playerContainer || document).querySelector('.art-state, .vjs-big-play-button, .jw-display-icon-container');
+      if (stateIcon) {
+        stateIcon.style.display = 'none';
+      }
+    } else if (isVideo || (trigger && trigger.classList.contains('art-mask'))) {
+      // Direct click on playing video toggles pause
+      userIntendedPause = true;
+      video.pause();
+      const stateIcon = (playerContainer || document).querySelector('.art-state, .vjs-big-play-button, .jw-display-icon-container');
+      if (stateIcon) {
+        stateIcon.style.removeProperty('display');
+      }
+    }
+  }, true);
 })();

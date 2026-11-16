@@ -184,7 +184,7 @@ async function updateBypassAndShieldScripts() {
     const toRegister = desired.filter((s) => !existingIds.has(s.id));
 
     if (toUpdate.length > 0) {
-      await chrome.scripting.updateContentScripts(toUpdate);
+      await chrome.scripting.updateContentScripts(toUpdate).catch(() => {});
     }
     if (toRegister.length > 0) {
       try {
@@ -490,7 +490,10 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 // Popup & Content Script Messaging
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (!msg || !msg.type) return;
+  if (!msg || !msg.type) {
+    if (typeof sendResponse === 'function') sendResponse({ ok: false });
+    return false;
+  }
 
   if (msg.type === 'BM_INTENTIONAL_CLICK') {
     const openerTabId = sender && sender.tab ? sender.tab.id : -1;
@@ -510,14 +513,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
       }
     }
-    sendResponse({ ok: true });
+    if (typeof sendResponse === 'function') sendResponse({ ok: true });
     return false;
   }
 
   if (msg.type === 'BM_BLOCKED') {
     const tabId = sender && sender.tab ? sender.tab.id : -1;
     recordBlock(tabId, msg.kind === 'redirect' ? 'redirect' : 'ad');
-    sendResponse({ ok: true });
+    if (typeof sendResponse === 'function') sendResponse({ ok: true });
     return false;
   }
 
@@ -537,6 +540,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         currentHost: hostname,
         siteEnabled: hostname ? !isSiteDisabled(hostname) : true
       });
+    }).catch(() => {
+      if (typeof sendResponse === 'function') sendResponse({ ok: false });
     });
     return true;
   }
@@ -555,8 +560,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
       currentSettings.disabledSites = nextList;
       chrome.storage.local.set({ disabledSites: nextList }, () => {
-        syncAll().then(() => sendResponse({ ok: true, siteEnabled: exists }));
+        syncAll()
+          .then(() => sendResponse({ ok: true, siteEnabled: exists }))
+          .catch(() => sendResponse({ ok: true }));
       });
+    }).catch(() => {
+      if (typeof sendResponse === 'function') sendResponse({ ok: false });
     });
     return true;
   }
@@ -566,9 +575,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       currentSettings.stats = { adsBlocked: 0, redirectsBlocked: 0 };
       tabStats.clear();
       chrome.storage.local.set({ stats: currentSettings.stats }, () => {
-        syncAll().then(() => sendResponse({ ok: true }));
+        syncAll()
+          .then(() => sendResponse({ ok: true }))
+          .catch(() => sendResponse({ ok: true }));
       });
+    }).catch(() => {
+      if (typeof sendResponse === 'function') sendResponse({ ok: false });
     });
     return true;
   }
+
+  if (typeof sendResponse === 'function') sendResponse({ ok: false });
+  return false;
 });

@@ -277,6 +277,7 @@
       if (rawHref && isBadUrl(fullHref)) {
         e.preventDefault();
         e.stopImmediatePropagation();
+        try { targetEl.remove(); } catch (err) {}
         reportBlocked('redirect', fullHref);
         return;
       }
@@ -300,36 +301,7 @@
   document.addEventListener('click', handleCapturePointer, true);
   document.addEventListener('auxclick', handleCapturePointer, true);
 
-  // 7. Block Popunder Script Injections
-  const origInsertBefore = Node.prototype.insertBefore;
-  Node.prototype.insertBefore = function (node, ref) {
-    if (node && node.tagName === 'SCRIPT' && node.src && isBadUrl(node.src)) {
-      reportBlocked('ad', node.src);
-      setTimeout(() => {
-        try {
-          if (typeof node.onload === 'function') node.onload(new Event('load'));
-          node.dispatchEvent(new Event('load'));
-        } catch (e) {}
-      }, 4);
-      return node;
-    }
-    return origInsertBefore.call(this, node, ref);
-  };
-
-  const origAppend = Element.prototype.appendChild;
-  Element.prototype.appendChild = function (node) {
-    if (node && node.tagName === 'SCRIPT' && node.src && isBadUrl(node.src)) {
-      reportBlocked('ad', node.src);
-      setTimeout(() => {
-        try {
-          if (typeof node.onload === 'function') node.onload(new Event('load'));
-          node.dispatchEvent(new Event('load'));
-        } catch (e) {}
-      }, 4);
-      return node;
-    }
-    return origAppend.call(this, node);
-  };
+  // 7. Block <meta http-equiv="refresh"> ad redirects
 
   try {
     const domObserver = new MutationObserver((mutations) => {

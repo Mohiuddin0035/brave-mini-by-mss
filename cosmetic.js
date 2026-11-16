@@ -61,16 +61,19 @@
     }
   }
 
-  // Sync settings from storage
+  // Sync settings from storage safely
   try {
-    chrome.storage.local.get({ aggressiveMode: true }, (data) => {
-      applyAggressiveFlag(data.aggressiveMode);
-    });
-    chrome.storage.onChanged.addListener((changes) => {
-      if (changes.aggressiveMode) {
-        applyAggressiveFlag(changes.aggressiveMode.newValue);
-      }
-    });
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get({ aggressiveMode: true }, (data) => {
+        if (chrome.runtime.lastError) return;
+        applyAggressiveFlag(data ? data.aggressiveMode : true);
+      });
+      chrome.storage.onChanged.addListener((changes) => {
+        if (changes && changes.aggressiveMode) {
+          applyAggressiveFlag(changes.aggressiveMode.newValue);
+        }
+      });
+    }
   } catch (e) {}
 
   injectCosmeticCSS();
@@ -83,12 +86,15 @@
       if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id || !chrome.runtime.sendMessage) {
         return;
       }
-      chrome.runtime.sendMessage(msg, function () {
-        var err = chrome.runtime.lastError;
+      const p = chrome.runtime.sendMessage(msg, function () {
+        const err = chrome.runtime.lastError;
         if (err) {
           return;
         }
       });
+      if (p && typeof p.catch === 'function') {
+        p.catch(function () {});
+      }
     } catch (e) {}
   }
 
@@ -105,15 +111,14 @@
   });
 
   // Smart Intentional Click Detector (ISOLATED world)
-  // Reliably distinguishes deliberate button/link clicks from random/background ad clicks
+  // Only records intentional clicks on links or download/auth actions that could spawn new tabs
   const ACTION_KEYWORDS = /(continue|download|destination|get link|generate link|proceed|verify|next|start|submit|visit|direct|open|play|server|stream|magnet|torrent|mirror|cloud|drive|file|click here|fast download|free download|skip|confirm|checkout|login|sign in|register)/i;
 
   function findIntentionalTarget(target) {
     if (!target || target.nodeType !== 1) return null;
 
-    const clickable = target.closest(
-      'button, a[href], input[type="button"], input[type="submit"], [role="button"], [class*="btn"], [class*="button"], [id*="btn"], [id*="button"]'
-    );
+    // Only inspect anchor links or form submits that could navigate/spawn tabs
+    const clickable = target.closest('a[href], button[type="submit"], input[type="submit"]');
     if (!clickable) return null;
 
     try {
@@ -141,6 +146,8 @@
     ).trim();
 
     const href = clickable.tagName === 'A' ? (clickable.href || clickable.getAttribute('href') || '') : '';
+    if (href && (href.startsWith('#') || href.startsWith('javascript:'))) return null;
+
     const hasKeyword = ACTION_KEYWORDS.test(text) || ACTION_KEYWORDS.test(clickable.className || '') || ACTION_KEYWORDS.test(clickable.id || '');
 
     return {
@@ -155,7 +162,7 @@
   function handlePotentialIntentionalClick(e) {
     if (!e.isTrusted) return;
     const now = Date.now();
-    if (now - lastSentClickTime < 350) return;
+    if (now - lastSentClickTime < 500) return;
 
     const info = findIntentionalTarget(e.target);
     if (!info) return;
@@ -173,7 +180,5 @@
     });
   }
 
-  document.addEventListener('pointerdown', handlePotentialIntentionalClick, true);
-  document.addEventListener('click', handlePotentialIntentionalClick, true);
+  document.addEventListener('click', handlePotentialIntentionalClick, false);
 })();
-
