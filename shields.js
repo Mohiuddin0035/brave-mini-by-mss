@@ -4,7 +4,7 @@
   if (window.__braveMiniShieldsLoaded) return;
   window.__braveMiniShieldsLoaded = true;
 
-  const AD_URL_RE = /popads|popcash|propellerads|propellerclick|propu\.sh|dolohen|onclkds|monetag|alwingulla|auredirect|adsterra|highperformanceformat|profitablecpmrate|topcreativeformat|effectivegatecpm|highcpmgate|hilltopads|exoclick|exosrv|realsrv|clickadu|adcash|acscdn|ad-maven|admaven|trafficjunky|juicyads|trafficstars|richads|galaksion|rollerads|evadav|clickaine|zeropark|bidvertiser|tsyndicate|magsrv|pemsrv|wpadmngr|onclickalgo|onclickmax|onclickmega|onclickprediction|onclickperformance|toponclick|dexpredict|nextoptim|notifpush|pushame|pushance|twinrdsrv|adskeeper|bidgear|doubleclick\.net|googlesyndication|googleadservices\.com\/pagead\/aclk|adclick\.g\.|adspyglass|popundertotal|popmyads|plugrush|voluumtrk|bemobtrk|redtrack\.io|rtmark\.net|gloyah\.net|pubfuture|pubadx|betterbannerscloud|doublepimp|taboola\.com|outbrain\.com|mgid\.com|revcontent\.com|criteo\.|adnxs\.com|rubiconproject|pubmatic|openx\.net|casalemedia|smartadserver|adform\.net|hotjar\.com|clarity\.ms|mc\.yandex\.ru|connect\.facebook\.net\/.*fbevents|facebook\.com\/tr\b|google-analytics\.com|googletagmanager\.com|analytics\.tiktok\.com|scorecardresearch|quantserve|sengtoo|s\.click\.aliexpress|aliexpress\.com\/s\/error|alix\.live|\/afu\.php|\/apu\.php/i;
+  const AD_URL_RE = /popads|popcash|propellerads|propellerclick|propu\.sh|dolohen|onclkds|monetag|alwingulla|auredirect|adsterra|highperformanceformat|profitablecpmrate|topcreativeformat|effectivegatecpm|highcpmgate|hilltopads|exoclick|exosrv|realsrv|clickadu|adcash|acscdn|ad-maven|admaven|trafficjunky|juicyads|trafficstars|richads|galaksion|rollerads|evadav|clickaine|zeropark|bidvertiser|tsyndicate|magsrv|pemsrv|wpadmngr|onclickalgo|onclickmax|onclickmega|onclickprediction|onclickperformance|toponclick|dexpredict|nextoptim|notifpush|pushame|pushance|twinrdsrv|adskeeper|bidgear|doubleclick\.net|googlesyndication|googleadservices\.com\/pagead\/aclk|adclick\.g\.|adspyglass|popundertotal|popmyads|plugrush|voluumtrk|bemobtrk|redtrack\.io|rtmark\.net|gloyah\.net|pubfuture|pubadx|betterbannerscloud|doublepimp|luugy|clickunder|popunder|1xbet|1xlite|1x-bet|melbet|mostbet|betwinner|linebet|parimatch|bet365|stake\.com|megapari|baji\b|babu88|krikya|nagad88|taboola\.com|outbrain\.com|mgid\.com|revcontent\.com|criteo\.|adnxs\.com|rubiconproject|pubmatic|openx\.net|casalemedia|smartadserver|adform\.net|hotjar\.com|clarity\.ms|mc\.yandex\.ru|connect\.facebook\.net\/.*fbevents|facebook\.com\/tr\b|google-analytics\.com|googletagmanager\.com|analytics\.tiktok\.com|scorecardresearch|quantserve|sengtoo|s\.click\.aliexpress|aliexpress\.com\/s\/error|alix\.live|\/afu\.php|\/apu\.php/i;
 
   const SUSPICIOUS_POPUP_TLD_RE = /\.(autos|cfd|icu|rest|monster|cyou|sbs|hair|makeup|quest|boats|yachts|homes|mom|bond|skin|lol)(\/|$|\?)/i;
 
@@ -147,6 +147,13 @@
   lockPopunderGlobal('popMagic', undefined);
   lockPopunderGlobal('puShown', true);
 
+  let lastPlayerClickTime = 0;
+  document.addEventListener('pointerdown', (e) => {
+    if (e.target && e.target.closest && e.target.closest('.artplayer-app, .art-video-player, .player-container, #player, [class*="player"], .jwplayer, .video-js, video')) {
+      lastPlayerClickTime = Date.now();
+    }
+  }, true);
+
   // 2. Smart window.open Popunder Blocker (Allows legitimate user-triggered navigation!)
   const origWindowOpen = window.open;
   window.open = function (url, target, features) {
@@ -158,6 +165,12 @@
 
     if (isBadUrl(urlStr)) {
       reportBlocked('redirect', urlStr);
+      return createFakeWindow();
+    }
+
+    // Video players never legitimately open popups. Block rogue clickunders during player interaction!
+    if (Date.now() - lastPlayerClickTime < 2500) {
+      reportBlocked('redirect', urlStr || 'player-clickunder');
       return createFakeWindow();
     }
 
@@ -240,19 +253,21 @@
   // 6. Surgical Full-Screen Empty Body Ad-Trap Remover (NEVER cancels real clicks!)
   function isFullScreenEmptyBodyTrap(el) {
     if (!el || el.nodeType !== 1) return false;
-    if (el.parentElement !== document.body && el.parentElement !== document.documentElement) return false;
-    if (el.tagName !== 'DIV') return false;
     try {
       const cs = getComputedStyle(el);
-      if (cs.position !== 'fixed' || cs.pointerEvents === 'none' || cs.display === 'none') return false;
-      const z = parseInt(cs.zIndex, 10);
-      if (isNaN(z) || z < 99999) return false;
+      if (cs.display === 'none' || cs.pointerEvents === 'none') return false;
+      if (cs.position !== 'fixed' && cs.position !== 'absolute') return false;
       const rect = el.getBoundingClientRect();
-      if (rect.width < window.innerWidth * 0.9 || rect.height < window.innerHeight * 0.9) return false;
+      const winW = window.innerWidth || 800;
+      const winH = window.innerHeight || 600;
+      if (rect.width < winW * 0.75 || rect.height < winH * 0.75) return false;
       const opacity = parseFloat(cs.opacity);
       const bg = cs.backgroundColor || '';
-      if (!(opacity <= 0.05 || bg === 'transparent' || bg === 'rgba(0, 0, 0, 0)')) return false;
-      if (el.children.length > 0 || (el.innerText || '').trim().length > 0) return false;
+      const isTransparent = (opacity <= 0.08 || bg === 'transparent' || bg === 'rgba(0, 0, 0, 0)');
+      if (!isTransparent) return false;
+      if (el.querySelector('video, audio, iframe, form, input, button, select, p, h1, h2, h3, h4')) return false;
+      const text = (el.innerText || '').trim();
+      if (text.length > 10) return false;
       return true;
     } catch (e) {
       return false;
@@ -260,13 +275,24 @@
   }
 
   function handleCapturePointer(e) {
-    if (isAggressive() && isFullScreenEmptyBodyTrap(e.target)) {
-      try { e.target.remove(); } catch (err) {}
-      reportBlocked('redirect', 'fullscreen-click-trap');
-      return; // Do NOT stopImmediatePropagation so underlying controls still work!
+    const targetEl = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+
+    if (isAggressive()) {
+      if (isFullScreenEmptyBodyTrap(e.target)) {
+        try { e.target.remove(); } catch (err) {}
+        reportBlocked('redirect', 'fullscreen-click-trap');
+        return; // Do NOT stopImmediatePropagation so underlying controls still work!
+      }
+
+      if (targetEl && isFullScreenEmptyBodyTrap(targetEl)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        try { targetEl.remove(); } catch (err) {}
+        reportBlocked('redirect', 'fullscreen-anchor-trap');
+        return;
+      }
     }
 
-    const targetEl = e.target && e.target.closest ? e.target.closest('a[href]') : null;
     if (targetEl) {
       if (targetEl.hasAttribute('ping')) {
         targetEl.removeAttribute('ping');

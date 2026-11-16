@@ -14,7 +14,9 @@ const ICON_OFF = {
   128: 'icons/icon128-off.png'
 };
 
-const EXPLICIT_AD_NETWORK_REGEX = /popads\.net|popcash\.net|propellerads\.com|propellerclick\.com|propu\.sh|dolohen\.com|onclkds\.com|monetag\.com|alwingulla\.com|auredirect\.com|adsterra\.com|highperformanceformat\.com|profitablecpmrate\.com|topcreativeformat\.com|effectivegatecpm\.com|highcpmgate\.com|hilltopads\.net|exoclick\.com|exosrv\.com|realsrv\.com|clickadu\.com|adcash\.com|acscdn\.com|ad-maven\.com|admaven\.com|trafficjunky\.net|juicyads\.com|trafficstars\.com|richads\.com|galaksion\.com|rollerads\.com|evadav\.com|clickaine\.com|zeropark\.com|bidvertiser\.com|tsyndicate\.com|magsrv\.com|pemsrv\.com|wpadmngr\.com|onclickalgo\.com|onclickmax\.com|onclickmega\.com|onclickprediction\.com|onclickperformance\.com|toponclick\.com|dexpredict\.com|nextoptim\.com|notifpush\.com|pushame\.com|pushance\.com|twinrdsrv\.com|adskeeper\.|bidgear\.com|adspyglass\.com|popundertotal\.com|popmyads\.com|plugrush\.com|voluumtrk\.com|bemobtrk\.com|redtrack\.io|rtmark\.net|gloyah\.net|pubfuture\.com|pubadx\.one|betterbannerscloud\.com|doublepimp\.com|adclick\.g\.doubleclick\.net|doubleclick\.net\/pcs\/click|googleadservices\.com\/pagead\/aclk|\/afu\.php|\/apu\.php/i;
+const EXPLICIT_AD_NETWORK_REGEX = /popads\.net|popcash\.net|propellerads|propellerclick|propu\.sh|dolohen|onclkds|monetag|alwingulla|auredirect|adsterra|highperformanceformat|profitablecpmrate|topcreativeformat|effectivegatecpm|highcpmgate|hilltopads|exoclick|exosrv|realsrv|clickadu|adcash|acscdn|ad-maven|admaven|trafficjunky|juicyads|trafficstars|richads|galaksion|rollerads|evadav|clickaine|zeropark|bidvertiser|tsyndicate|magsrv|pemsrv|wpadmngr|onclickalgo|onclickmax|onclickmega|onclickprediction|onclickperformance|toponclick|dexpredict|nextoptim|notifpush|pushame|pushance|twinrdsrv|adskeeper|bidgear|adspyglass|popundertotal|popmyads|plugrush|voluumtrk|bemobtrk|redtrack\.io|rtmark\.net|gloyah\.net|pubfuture|pubadx|betterbannerscloud|doublepimp|luugy\.com|clickunder|popunder|1xbet|1xlite|1x-bet|melbet|mostbet|betwinner|linebet|parimatch|bet365|stake\.com|megapari|baji\b|babu88|krikya|nagad88|\/afu\.php|\/apu\.php/i;
+
+const LEGITIMATE_DESTINATION_RE = /google\.com|googleapis\.com|drive\.google|mega\.nz|mega\.io|mediafire\.com|1fichier\.com|gofile\.io|pixeldrain\.com|krakenfiles\.com|dropbox\.com|terabox\.com|send\.cm|qiwi\.gg|hubcloud|filepress|gdflix|katdrive|gdtot|sharer\.pw|streamtape\.com|doodstream|vidmoly|github\.com|microsoft\.com|apple\.com/i;
 
 const SUSPICIOUS_POPUP_TLD_RE = /\.(autos|cfd|icu|rest|monster|cyou|sbs|hair|makeup|quest|boats|yachts|homes|mom|bond|skin|lol)(\/|$|\?)/i;
 
@@ -380,33 +382,47 @@ async function inspectChildTab(tabId, url) {
   if (isSiteDisabled(popupInfo.openerHost)) return;
   if (SAFE_AUTH_RE.test(url)) return;
 
+  // 1. Whitelist for Legitimate Downloads, Cloud Storage & File Hosts:
+  // If destination is a known cloud or download host, NEVER KILL!
+  if (LEGITIMATE_DESTINATION_RE.test(url)) {
+    recentPopupTabs.delete(tabId);
+    return;
+  }
+
+  // 2. Unmistakable Ad, Clickunder, Popunder or Betting Network:
+  // KILL IMMEDIATELY regardless of whether user clicked something!
+  if (EXPLICIT_AD_NETWORK_REGEX.test(url)) {
+    killPopupTab(tabId, popupInfo);
+    return;
+  }
+
+  // 3. If opener tab was interacting with a video player:
+  // In-page video players never legitimately open external tabs!
+  if (popupInfo.clickInfo && popupInfo.clickInfo.isPlayerClick) {
+    killPopupTab(tabId, popupInfo);
+    return;
+  }
+
   const host = getHostname(url);
   const root = getRootDomain(host);
   if (root) popupInfo.domains.add(root);
 
-  // 1. If tab was opened from an INTENTIONAL user action (e.g. clicking "Continue to Destination", "Download", etc.):
+  // 4. If tab was opened from an INTENTIONAL user action (e.g. clicking "Download", "GDrive", "Mega"):
   if (popupInfo.isIntentional) {
-    // Only kill if the URL explicitly targets an unmistakable known ad/popunder network
-    if (EXPLICIT_AD_NETWORK_REGEX.test(url)) {
-      killPopupTab(tabId, popupInfo);
-      return;
-    }
-
-    // If it navigates to a valid external destination domain, allow it and release from monitoring
-    // so subsequent redirects (e.g. file storage gateways, mirrors, CDNs) are never blocked or killed
-    if (host && host !== popupInfo.openerHost && !EXPLICIT_AD_NETWORK_REGEX.test(url)) {
+    // If it navigates to a valid external destination domain that is not an ad network, allow it!
+    if (host && host !== popupInfo.openerHost) {
       recentPopupTabs.delete(tabId);
     }
     return;
   }
 
-  // 2. Tab was NOT opened by an intentional button click (e.g. random page click, hidden overlay, or script popunder):
-  if (EXPLICIT_AD_NETWORK_REGEX.test(url) || (root !== popupInfo.openerRoot && SUSPICIOUS_POPUP_TLD_RE.test(url))) {
+  // 5. Tab was NOT opened by an intentional button click (e.g. random page click, hidden overlay):
+  if (root !== popupInfo.openerRoot && SUSPICIOUS_POPUP_TLD_RE.test(url)) {
     killPopupTab(tabId, popupInfo);
     return;
   }
 
-  // 3. Multi-hop ad-rotator chains (>= 3 unrelated external domains in < 6s) for non-intentional popups
+  // 6. Multi-hop ad-rotator chains (>= 3 unrelated external domains in < 6s) for non-intentional popups
   if (currentSettings.aggressiveMode) {
     const externalDomains = Array.from(popupInfo.domains).filter((d) => d && d !== popupInfo.openerRoot);
     if (externalDomains.length >= 3) {

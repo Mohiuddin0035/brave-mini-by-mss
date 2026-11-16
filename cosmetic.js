@@ -112,10 +112,25 @@
 
   // Smart Intentional Click Detector (ISOLATED world)
   // Only records intentional clicks on links or download/auth actions that could spawn new tabs
-  const ACTION_KEYWORDS = /(continue|download|destination|get link|generate link|proceed|verify|next|start|submit|visit|direct|open|play|server|stream|magnet|torrent|mirror|cloud|drive|file|click here|fast download|free download|skip|confirm|checkout|login|sign in|register)/i;
+  const ACTION_KEYWORDS = /(continue|download|destination|get link|generate link|proceed|verify|next|start|submit|visit|direct|open|play|server|stream|magnet|torrent|mirror|cloud|drive|file|click here|fast download|free download|skip|confirm|checkout|login|sign in|register|1080p|720p|480p|gdrive|mega)/i;
+  const DOWNLOAD_KEYWORDS = /(download|gdrive|mega|1080p|720p|480p|mirror|magnet|torrent|cloud|drive|file|get link|generate link)/i;
 
   function findIntentionalTarget(target) {
     if (!target || target.nodeType !== 1) return null;
+
+    const isPlayer = Boolean(target.closest('.artplayer-app, .art-video-player, .player-container, #player, [class*="player"], .jwplayer, .video-js, video'));
+
+    // If click is inside a player, it is NEVER an intentional new-tab action
+    if (isPlayer) {
+      return {
+        tagName: target.tagName,
+        text: 'player-click',
+        href: '',
+        hasKeyword: false,
+        isPlayerClick: true,
+        isDownload: false
+      };
+    }
 
     // Only inspect anchor links or form submits that could navigate/spawn tabs
     const clickable = target.closest('a[href], button[type="submit"], input[type="submit"]');
@@ -131,7 +146,7 @@
       // Filter out deceptive full-screen overlay traps
       const winW = window.innerWidth || 800;
       const winH = window.innerHeight || 600;
-      if (rect.width >= winW * 0.85 && rect.height >= winH * 0.85) {
+      if (rect.width >= winW * 0.75 && rect.height >= winH * 0.75) {
         return null;
       }
     } catch (e) {}
@@ -148,13 +163,20 @@
     const href = clickable.tagName === 'A' ? (clickable.href || clickable.getAttribute('href') || '') : '';
     if (href && (href.startsWith('#') || href.startsWith('javascript:'))) return null;
 
-    const hasKeyword = ACTION_KEYWORDS.test(text) || ACTION_KEYWORDS.test(clickable.className || '') || ACTION_KEYWORDS.test(clickable.id || '');
+    const cls = clickable.className || '';
+    const id = clickable.id || '';
+    const combinedStr = text + ' ' + cls + ' ' + id + ' ' + href;
+
+    const hasKeyword = ACTION_KEYWORDS.test(combinedStr);
+    const isDownload = DOWNLOAD_KEYWORDS.test(combinedStr);
 
     return {
       tagName: clickable.tagName,
       text: text.slice(0, 100),
       href: href.slice(0, 500),
-      hasKeyword
+      hasKeyword,
+      isPlayerClick: false,
+      isDownload
     };
   }
 
@@ -162,7 +184,7 @@
   function handlePotentialIntentionalClick(e) {
     if (!e.isTrusted) return;
     const now = Date.now();
-    if (now - lastSentClickTime < 500) return;
+    if (now - lastSentClickTime < 350) return;
 
     const info = findIntentionalTarget(e.target);
     if (!info) return;
@@ -175,6 +197,8 @@
         text: info.text,
         href: info.href,
         hasKeyword: info.hasKeyword,
+        isPlayerClick: info.isPlayerClick,
+        isDownload: info.isDownload,
         timestamp: now
       }
     });
