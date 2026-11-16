@@ -78,18 +78,28 @@
     document.addEventListener('DOMContentLoaded', injectCosmeticCSS, { once: true });
   }
 
+  function safeSendMessage(msg) {
+    try {
+      if (!chrome.runtime || !chrome.runtime.sendMessage) return;
+      chrome.runtime.sendMessage(msg, () => {
+        if (chrome.runtime.lastError) {
+          // Explicitly read lastError to prevent "Unchecked runtime.lastError: No SW"
+          void chrome.runtime.lastError;
+        }
+      });
+    } catch (e) {}
+  }
+
   // Bridge blocked telemetry from MAIN world shields.js to background.js
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
     const data = event.data;
     if (!data || data.__bmShieldBlocked !== true) return;
-    try {
-      chrome.runtime.sendMessage({
-        type: 'BM_BLOCKED',
-        kind: data.kind === 'redirect' ? 'redirect' : 'ad',
-        url: data.url || ''
-      }).catch(() => {});
-    } catch (e) {}
+    safeSendMessage({
+      type: 'BM_BLOCKED',
+      kind: data.kind === 'redirect' ? 'redirect' : 'ad',
+      url: data.url || ''
+    });
   });
 
   // Smart Intentional Click Detector (ISOLATED world)
@@ -149,18 +159,16 @@
     if (!info) return;
 
     lastSentClickTime = now;
-    try {
-      chrome.runtime.sendMessage({
-        type: 'BM_INTENTIONAL_CLICK',
-        info: {
-          tagName: info.tagName,
-          text: info.text,
-          href: info.href,
-          hasKeyword: info.hasKeyword,
-          timestamp: now
-        }
-      }).catch(() => {});
-    } catch (err) {}
+    safeSendMessage({
+      type: 'BM_INTENTIONAL_CLICK',
+      info: {
+        tagName: info.tagName,
+        text: info.text,
+        href: info.href,
+        hasKeyword: info.hasKeyword,
+        timestamp: now
+      }
+    });
   }
 
   document.addEventListener('pointerdown', handlePotentialIntentionalClick, true);

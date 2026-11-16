@@ -10,9 +10,6 @@
     return;
   }
 
-  let adblockDetectedBySite = false;
-  let userClickedPause = false;
-
   // 2. Global Ad Flags & Stubs
   const noopFn = function () {};
   const noopPubads = {
@@ -197,26 +194,6 @@
     return BAIT_URL_REGEX.test(src) || /(^|\/)(ads?\.js|pagead\.js|show_ads\.js|adsbygoogle\.js|gpt\.js|ad_status)($|\?)/i.test(src);
   }
 
-  const origImageSrc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
-  if (origImageSrc && origImageSrc.set) {
-    Object.defineProperty(HTMLImageElement.prototype, 'src', {
-      set(val) {
-        if (typeof val === 'string' && BAIT_URL_REGEX.test(val)) {
-          setTimeout(() => {
-            try {
-              if (typeof this.onload === 'function') this.onload(new Event('load'));
-              this.dispatchEvent(new Event('load'));
-            } catch (e) {}
-          }, 5);
-        }
-        return origImageSrc.set.call(this, val);
-      },
-      get() {
-        return origImageSrc.get.call(this);
-      }
-    });
-  }
-
   const origAppend = Element.prototype.appendChild;
   Element.prototype.appendChild = function (node) {
     if (node && node.tagName === 'SCRIPT' && node.src && isBaitScriptSrc(node.src)) {
@@ -245,12 +222,37 @@
     return origInsertBefore.call(this, node, ref);
   };
 
-  // 6. Defeat Bait Element Offset / Client Dimensions & ComputedStyle Checks
-  // Sites test if element with ad-related class or id gets collapsed (0 height or display: none)
-  const BAIT_ELEMENT_REGEX = /\b(ad|ads|banner|sponsor|advert|pub_300|text-ad|ad-unit|ad-zone|ad-slot|adsbygoogle|ad-placement)\b/i;
+  const origImageSrc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+  if (origImageSrc && origImageSrc.set) {
+    Object.defineProperty(HTMLImageElement.prototype, 'src', {
+      set(val) {
+        if (typeof val === 'string' && BAIT_URL_REGEX.test(val)) {
+          setTimeout(() => {
+            try {
+              if (typeof this.onload === 'function') this.onload(new Event('load'));
+              this.dispatchEvent(new Event('load'));
+            } catch (e) {}
+          }, 5);
+        }
+        return origImageSrc.set.call(this, val);
+      },
+      get() {
+        return origImageSrc.get.call(this);
+      }
+    });
+  }
+
+  // 6. Defeat Bait Element Offset / Client Dimensions Checks
+  // Returns positive dimensions ONLY for collapsed bait ad elements
+  // NEVER touches real video elements, iframe, or controls!
+  const BAIT_ELEMENT_REGEX = /\b(pub_300|pub_728|text-ad|ad-unit|ad-zone|ad-slot|adsbygoogle|ad-placement)\b/i;
 
   function isAdBaitElement(el) {
     if (!el || el.nodeType !== 1) return false;
+    if (el.tagName === 'VIDEO' || el.tagName === 'AUDIO' || el.tagName === 'IFRAME') return false;
+    if (el.closest && el.closest('.jw-controls, .vjs-control-bar, .plyr__controls, [class*="control"], [class*="player"]')) {
+      return false;
+    }
     const cls = String(el.className || '');
     const id = String(el.id || '');
     return BAIT_ELEMENT_REGEX.test(cls) || BAIT_ELEMENT_REGEX.test(id);
@@ -310,117 +312,92 @@
     return rect;
   };
 
-  const origGetComputedStyle = window.getComputedStyle;
-  window.getComputedStyle = function (el, pseudo) {
-    const cs = origGetComputedStyle.apply(window, arguments);
-    if (isAdBaitElement(el)) {
-      return new Proxy(cs, {
-        get(target, prop) {
-          if (prop === 'display') return 'block';
-          if (prop === 'visibility') return 'visible';
-          if (prop === 'opacity') return '1';
-          const val = target[prop];
-          return typeof val === 'function' ? val.bind(target) : val;
-        }
-      });
-    }
-    return cs;
-  };
-
-  // 7. Active Adblock Overlay Killer & Streaming Player Unlocker
-  // Detects and eliminates overlays like "Ad Blocker Detected", "Please disable your ad blocker", etc.
+  // 7. Surgical AdBlock Warning Dialog Remover & Video Controls Protector
+  // Eliminates ONLY the cancer cell (the specific warning modal card)
+  // NEVER hides parent containers, NEVER touches player controls!
   const ADBLOCK_OVERLAY_TEXT_REGEX = /ad\s*blocker\s*detected|disable\s*your\s*ad\s*blocker|please\s*disable\s*ad\s*blocker|turn\s*off\s*your\s*ad\s*blocker|adblock\s*detected|blocker\s*detected/i;
 
-  function scanAndUnlock(root) {
-    if (!root) return;
-    const candidates = root.querySelectorAll('div, section, aside, [role="dialog"], [role="alertdialog"], .modal, .overlay, .backdrop');
+  function removeAdBlockOverlay() {
+    // 1. Remove StreamTape overlay if present
+    const stOverlay = document.querySelector('.sp-adblock-overlay');
+    if (stOverlay) {
+      try { stOverlay.remove(); } catch (e) {}
+    }
+
+    // 2. Surgical removal of AdBlock dialogs
+    const candidates = document.querySelectorAll(
+      'div, section, aside, [role="dialog"], [role="alertdialog"], .modal, .overlay, .backdrop'
+    );
+
     for (const el of candidates) {
       if (!el || !el.innerText) continue;
+      // Do NOT touch anything containing media!
+      if (el.querySelector('video, audio, iframe')) continue;
+
       if (ADBLOCK_OVERLAY_TEXT_REGEX.test(el.innerText)) {
-        let modalContainer = el;
-        while (
-          modalContainer.parentElement &&
-          modalContainer.parentElement !== document.body &&
-          modalContainer.parentElement !== document.documentElement &&
-          (modalContainer.parentElement.offsetWidth <= el.offsetWidth * 1.5)
+        let targetModal = el;
+        const dialogAncestor = el.closest(
+          '[role="dialog"], [role="alertdialog"], .modal, .overlay, .backdrop, [class*="adblock"], [id*="adblock"]'
+        );
+        if (
+          dialogAncestor &&
+          !dialogAncestor.querySelector('video, audio, iframe') &&
+          dialogAncestor !== document.body &&
+          dialogAncestor !== document.documentElement
         ) {
-          modalContainer = modalContainer.parentElement;
+          targetModal = dialogAncestor;
         }
 
-        const recheckBtn = modalContainer.querySelector('button, a, .btn, [role="button"]');
+        // Try clicking recheck / reload button if present
+        const recheckBtn = targetModal.querySelector('button, a, .btn, [role="button"]');
         if (recheckBtn && /recheck|disabled|continue|i've disabled/i.test(recheckBtn.innerText || '')) {
           try { recheckBtn.click(); } catch (err) {}
         }
 
-        modalContainer.style.setProperty('display', 'none', 'important');
-        modalContainer.style.setProperty('visibility', 'hidden', 'important');
-        modalContainer.style.setProperty('pointer-events', 'none', 'important');
-        modalContainer.style.setProperty('opacity', '0', 'important');
-        adblockDetectedBySite = true;
+        // Surgically remove or hide ONLY this specific dialog card
+        try {
+          targetModal.remove();
+        } catch (err) {
+          targetModal.style.setProperty('display', 'none', 'important');
+          targetModal.style.setProperty('visibility', 'hidden', 'important');
+          targetModal.style.setProperty('pointer-events', 'none', 'important');
+          targetModal.style.setProperty('opacity', '0', 'important');
+        }
 
-        if (document.body) document.body.style.removeProperty('overflow');
-        if (document.documentElement) document.documentElement.style.removeProperty('overflow');
+        if (document.body) {
+          document.body.style.removeProperty('overflow');
+          document.body.style.removeProperty('position');
+        }
+        if (document.documentElement) {
+          document.documentElement.style.removeProperty('overflow');
+        }
+      }
+    }
+
+    // 3. Ensure all Video Player Controls are visible and interactive
+    const controls = document.querySelectorAll(
+      '.jw-controls, .vjs-control-bar, .plyr__controls, [class*="control-bar"], [class*="controls-bar"], [class*="player-controls"], .cf-controls-panel, .controls'
+    );
+    for (const ctrl of controls) {
+      if (ctrl.style.display === 'none') {
+        ctrl.style.removeProperty('display');
+      }
+      if (ctrl.style.visibility === 'hidden') {
+        ctrl.style.removeProperty('visibility');
+      }
+      if (ctrl.style.pointerEvents === 'none') {
+        ctrl.style.removeProperty('pointer-events');
+      }
+      if (ctrl.style.opacity === '0') {
+        ctrl.style.removeProperty('opacity');
       }
     }
   }
 
-  function unlockStreamingPlayer() {
-    // 1. Remove StreamTape overlay if present
-    const stOverlay = document.querySelector('.sp-adblock-overlay');
-    if (stOverlay) {
-      adblockDetectedBySite = true;
-      stOverlay.remove();
-    }
-
-    // 2. Scan main document for AdBlock modal dialogs / overlays (like CineFreak, embed players, etc.)
-    scanAndUnlock(document);
-
-    // 3. Unhide any hidden video / iframe players
-    const videos = document.querySelectorAll('video, iframe[src*="stream"], iframe[src*="embed"], iframe[src*="player"], .player-container, #player, [class*="player"]');
-    for (const v of videos) {
-      try {
-        const cs = window.getComputedStyle(v);
-        if (cs.display === 'none') {
-          v.style.setProperty('display', 'block', 'important');
-        }
-        if (cs.visibility === 'hidden') {
-          v.style.setProperty('visibility', 'visible', 'important');
-        }
-        if (v.tagName === 'VIDEO' && v.paused && !userClickedPause) {
-          v.play().catch(() => {});
-        }
-      } catch (err) {}
-    }
-  }
-
-  // 8. Stream Player Click & Pause Protection
-  document.addEventListener('click', (e) => {
-    const target = e.target && e.target.closest ? e.target.closest('.sp-root, .sp-chrome, .player, #player, .vjs-play-control, .jw-display-icon-container, video') : null;
-    if (!target) return;
-
-    const video = document.querySelector('video');
-    if (!video) return;
-
-    if (video.paused) {
-      userClickedPause = false;
-      video.play().catch(() => {});
-    } else {
-      userClickedPause = true;
-    }
-  }, true);
-
-  const origPause = HTMLMediaElement.prototype.pause;
-  HTMLMediaElement.prototype.pause = function () {
-    if (adblockDetectedBySite && !userClickedPause && this.tagName === 'VIDEO') {
-      return;
-    }
-    return origPause.apply(this, arguments);
-  };
-
   // Run immediately and observe DOM changes
-  unlockStreamingPlayer();
-  const observer = new MutationObserver(unlockStreamingPlayer);
+  removeAdBlockOverlay();
+  const observer = new MutationObserver(removeAdBlockOverlay);
   observer.observe(document.documentElement, { childList: true, subtree: true });
-  window.addEventListener('DOMContentLoaded', unlockStreamingPlayer);
-  window.addEventListener('load', unlockStreamingPlayer);
+  window.addEventListener('DOMContentLoaded', removeAdBlockOverlay);
+  window.addEventListener('load', removeAdBlockOverlay);
 })();

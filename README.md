@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Mohiuddin0035/brave-mini-by-mss/releases/tag/v3.0.4">
-    <img src="https://img.shields.io/badge/Download-v3.0.4%20ZIP-FB542B?style=for-the-badge&logo=github" alt="Download v3.0.4" />
+  <a href="https://github.com/Mohiuddin0035/brave-mini-by-mss/releases/tag/v3.0.5">
+    <img src="https://img.shields.io/badge/Download-v3.0.5%20ZIP-FB542B?style=for-the-badge&logo=github" alt="Download v3.0.5" />
   </a>
   <img src="https://img.shields.io/badge/Manifest-V3-FF7A00?style=for-the-badge" alt="Manifest V3" />
   <img src="https://img.shields.io/badge/Privacy-100%25%20Local-10B981?style=for-the-badge" alt="100% Local" />
@@ -79,7 +79,7 @@
 
 ### Option 1: Download ZIP (Recommended)
 
-1. **Download the latest release:** 👉 [**`Brave-Mini-by-MS-v3.0.4.zip`**](https://github.com/Mohiuddin0035/brave-mini-by-mss/releases/latest/download/Brave-Mini-by-MS-v3.0.4.zip) (or open the [**Releases page**](https://github.com/Mohiuddin0035/brave-mini-by-mss/releases)).
+1. **Download the latest release:** 👉 [**`Brave-Mini-by-MS-v3.0.5.zip`**](https://github.com/Mohiuddin0035/brave-mini-by-mss/releases/latest/download/Brave-Mini-by-MS-v3.0.5.zip) (or open the [**Releases page**](https://github.com/Mohiuddin0035/brave-mini-by-mss/releases)).
 2. **Extract (unzip)** the file to a permanent folder (e.g., `C:\Extensions\Brave-Mini-by-MS`).
    > ⚠️ **Keep this folder!** Your browser loads the extension directly from here, so don't delete it after installing.
 3. Open your browser's Extensions page:

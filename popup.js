@@ -127,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.runtime.sendMessage(
       { type: 'BM_TOGGLE_SITE', host: currentHostname },
       () => {
+        if (chrome.runtime.lastError) void chrome.runtime.lastError;
         refreshPopup();
         reloadActiveTabDelayed();
       }
@@ -179,6 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Reset stats
   resetStatsBtn.addEventListener('click', () => {
     chrome.runtime.sendMessage({ type: 'BM_RESET_STATS' }, () => {
+      if (chrome.runtime.lastError) void chrome.runtime.lastError;
       refreshPopup();
     });
   });
