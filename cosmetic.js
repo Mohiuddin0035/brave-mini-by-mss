@@ -132,8 +132,10 @@
       };
     }
 
-    // Only inspect anchor links or form submits that could navigate/spawn tabs
-    const clickable = target.closest('a[href], button[type="submit"], input[type="submit"]');
+    // Inspect real interactive buttons and links (never shades or overlays)
+    const clickable = target.closest(
+      'button, a[href], input[type="button"], input[type="submit"], [role="button"], .btn, [class*="btn"], [class*="button"], [id*="btn"], [id*="button"]'
+    );
     if (!clickable) return null;
 
     try {
@@ -143,12 +145,14 @@
       }
       const rect = clickable.getBoundingClientRect();
       if (rect.width < 10 || rect.height < 10) return null;
-      // Filter out deceptive full-screen overlay traps
+      // Filter out deceptive full-screen shade / click-trap overlays
       const winW = window.innerWidth || 800;
       const winH = window.innerHeight || 600;
-      if (rect.width >= winW * 0.75 && rect.height >= winH * 0.75) {
+      if (rect.width >= winW * 0.6 && rect.height >= winH * 0.6) {
         return null;
       }
+      const opacity = parseFloat(cs.opacity);
+      if (opacity <= 0.08) return null;
     } catch (e) {}
 
     const text = (

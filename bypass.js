@@ -448,48 +448,34 @@
 
     if (!video) return;
 
-    // Check if the user deliberately clicked a pause control button
-    const isPauseBtn = e.target.closest && e.target.closest(
-      '.art-icon-pause, [aria-label*="Pause" i], [title*="Pause" i], .vjs-playing .vjs-play-control'
-    );
+    // Toggle play/pause when user clicks:
+    // 1. Center round yellow state button (.art-state, .art-icon-state, .vjs-big-play-button)
+    // 2. Video frame or mask (.art-mask, <video>)
+    // 3. Bottom bar play/pause control button (.art-control-playAndPause, .vjs-play-control)
+    const isStateButton = Boolean(e.target.closest && e.target.closest(
+      '.art-state, .art-icon-state, .vjs-big-play-button, .jw-display-icon-container, [class*="art-state"]'
+    ));
+    const isMaskOrVideo = isVideo || Boolean(e.target.closest && e.target.closest('.art-mask'));
+    const isPlayPauseControl = Boolean(e.target.closest && e.target.closest(
+      '.art-control-playAndPause, .vjs-play-control, [aria-label*="Play" i], [aria-label*="Pause" i], [title*="Play" i], [title*="Pause" i]'
+    ));
 
-    if (isPauseBtn) {
-      userIntendedPause = true;
-      video.pause();
-      const stateIcon = (playerContainer || document).querySelector('.art-state, .vjs-big-play-button, .jw-display-icon-container');
-      if (stateIcon) {
-        stateIcon.style.removeProperty('display');
+    if (isStateButton || isMaskOrVideo || isPlayPauseControl) {
+      if (video.paused) {
+        userIntendedPause = false;
+        lastUserPlayTime = Date.now();
+        const playPromise = video.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => {
+            video.muted = false;
+            video.play().catch(() => {});
+          });
+        }
+      } else {
+        userIntendedPause = true;
+        video.pause();
       }
       return;
-    }
-
-    // If the video is paused, trigger play!
-    if (video.paused) {
-      userIntendedPause = false;
-      lastUserPlayTime = Date.now();
-
-      const playPromise = video.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch(() => {
-          // If browser autoplay policy blocked with audio, retry unmuted
-          video.muted = false;
-          video.play().catch(() => {});
-        });
-      }
-
-      // Hide the big center play icon immediately for instant visual feedback
-      const stateIcon = (playerContainer || document).querySelector('.art-state, .vjs-big-play-button, .jw-display-icon-container');
-      if (stateIcon) {
-        stateIcon.style.display = 'none';
-      }
-    } else if (isVideo || (trigger && trigger.classList.contains('art-mask'))) {
-      // Direct click on playing video toggles pause
-      userIntendedPause = true;
-      video.pause();
-      const stateIcon = (playerContainer || document).querySelector('.art-state, .vjs-big-play-button, .jw-display-icon-container');
-      if (stateIcon) {
-        stateIcon.style.removeProperty('display');
-      }
     }
   }, true);
 })();

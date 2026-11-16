@@ -407,12 +407,10 @@ async function inspectChildTab(tabId, url) {
   const root = getRootDomain(host);
   if (root) popupInfo.domains.add(root);
 
-  // 4. If tab was opened from an INTENTIONAL user action (e.g. clicking "Download", "GDrive", "Mega"):
+  // 4. If tab was opened from a REAL user button click (e.g. clicking "Continue to Destination", "Download", "Get Link"):
   if (popupInfo.isIntentional) {
-    // If it navigates to a valid external destination domain that is not an ad network, allow it!
-    if (host && host !== popupInfo.openerHost) {
-      recentPopupTabs.delete(tabId);
-    }
+    // Since user clicked a real button, release from monitoring so all link verification and downloads succeed!
+    recentPopupTabs.delete(tabId);
     return;
   }
 
@@ -526,6 +524,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (pInfo.openerTabId === openerTabId && (Date.now() - pInfo.createdAt < 3500)) {
           pInfo.isIntentional = true;
           pInfo.clickInfo = info;
+          recentPopupTabs.delete(childId);
         }
       }
     }

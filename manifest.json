@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Brave Mini by MS",
   "short_name": "Brave Mini",
-  "version": "3.0.8",
+  "version": "3.0.9",
   "description": "Brave-style aggressive ad blocker, redirect & popunder shield, anti-adblock bypass, and URL tracker cleaner — by MS.",
   "icons": {
     "16": "icons/icon16.png",
